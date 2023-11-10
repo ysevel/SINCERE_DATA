@@ -3,6 +3,7 @@ SINCERE DATA : SINgle-CEll REads Decontamination through Automatic Taxonomic Ass
 
 This is the version 0.1 of the sincere_data pipeline actually provided for the genouest cluster users. 
 requirement:
+
 kraken2
 
 samtools
