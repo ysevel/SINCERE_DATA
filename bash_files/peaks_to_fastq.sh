@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -p genouest,ecobio
 #SBATCH --cpus-per-task 4
 . /local/env/envconda.sh 
 
