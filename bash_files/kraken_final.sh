@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH -p genouest,bigmem,ecobio
 #SBATCH --cpus-per-task 8
 #SBATCH --mem=300G
 . /local/env/envconda.sh 
@@ -12,18 +13,19 @@ input=$1
 IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
-tmp_file=$5
+tmp_file=$7
+conda_env=$5
 
 id=${list_ids[${SLURM_ARRAY_TASK_ID}]}
 
-conda activate my_pip
+conda activate ${conda_env}
 path_final="${input}${id}/final_assembly/"
 reads_R1=$(find $path_final -name "$id*1.fastq*") 
 echo "reads_R1 : $reads_R1"
 reads_R2=$(find $path_final -name "$id*2.fastq*") 
 echo "reads_R2 : $reads_R2"
 
-kraken_bdd="/groups/ecogeno/DEV/2023_kraken_db/k2_pluspfp"
+kraken_bdd=$6
 output_dir="${path_out}${suffix}/analysis_on_final/"
 result_dir=$output_dir"kraken_results_decontaxo/"
 report_dir=$output_dir"kraken_reports_decontaxo/"

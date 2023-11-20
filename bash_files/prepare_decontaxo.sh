@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH -p genouest,ecobio
 #SBATCH --cpus-per-task 8
 . /local/env/envconda.sh 
 
@@ -9,7 +10,8 @@ IFS=" " read -ra list_path_input <<< $1
 IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
-tmp_file=$5
+tmp_file=$6
+conda_env=$5
 
 ### assign variables related to the sample concerned
 path_in=${list_path_input[${SLURM_ARRAY_TASK_ID}]}
@@ -20,7 +22,7 @@ mkdir $output_dir
 
 touch $tmp_file
 
-conda activate my_pip
+conda activate ${conda_env}
 
 ### assembly
 reads_R1=$(find $path_in -name "${id}*1.fastq*") 

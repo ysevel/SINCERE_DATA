@@ -1,6 +1,6 @@
 #!/bin/bash
+#SBATCH -p genouest,ecobio
 #SBATCH --cpus-per-task 8
-
 . /local/env/envconda.sh 
 
 nbThreads="16"
@@ -10,14 +10,15 @@ IFS=" " read -ra list_path_input <<< $1
 IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
-tmp_file=$5
+tmp_file=$6
+conda_env=$5
 
 id=${list_ids[${SLURM_ARRAY_TASK_ID}]}
 input_dir="${path_out}${suffix}/${id}/final_assembly/"
 
 touch $tmp_file
 
-conda activate my_pip
+conda activate ${conda_env}
 
 ### assemble
 reads_R1=$input_dir$id"_"$suffix"_decontaxo_R1.fastq"

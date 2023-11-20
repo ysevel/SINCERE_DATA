@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH -p genouest,bigmem,ecobio
 #SBATCH --cpus-per-task 8
 #SBATCH --mem=300G
 . /local/env/envconda.sh 
@@ -9,14 +10,15 @@ IFS=" " read -ra list_path_input <<< $1
 IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
-tmp_file=$5
+tmp_file=$7
+conda_env=$5
 
 id=${list_ids[${SLURM_ARRAY_TASK_ID}]}
 
-conda activate my_pip
+conda activate ${conda_env}
 
 output_dir="${path_out}${suffix}/${id}/decontamination/"
-kraken_bdd="/groups/ecogeno/DEV/2023_kraken_db/k2_pluspfp"
+kraken_bdd=$6
 
 reads_dir="${output_dir}fastqs"
 report_dir="${output_dir}kraken_reports"

@@ -1,16 +1,19 @@
 #!/bin/bash
+#SBATCH -p genouest,ecobio
 #SBATCH --cpus-per-task 4
 . /local/env/envconda.sh 
 
-conda activate my_pip
+
 
 ### convert arguments into lists
 IFS=" " read -ra list_path_input <<< $1
 IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
-tmp_file=$5
+tmp_file=$6
+conda_env=$5
 
+conda activate ${conda_env}
 ### assign matching file for sarray
 path_in=${list_path_input[${SLURM_ARRAY_TASK_ID}]}
 id=${list_ids[${SLURM_ARRAY_TASK_ID}]}

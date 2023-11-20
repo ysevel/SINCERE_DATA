@@ -1,10 +1,11 @@
 #!/bin/bash
+#SBATCH -p genouest,ecobio
 #SBATCH --cpus-per-task 1
 . /local/env/envconda.sh 
 
 nbThreads="10"
 
-conda activate my_pip
+
 
 ### convert arguments into lists
 IFS=" " read -ra list_path_input <<< $1
@@ -12,8 +13,10 @@ IFS=" " read -ra list_ids <<< $2
 suffix=$3
 path_out=$4
 contaminants=$5
-tmp_file=$6
+tmp_file=$7
+conda_env=$6
 
+conda activate ${conda_env}
 path_in=${list_path_input[${SLURM_ARRAY_TASK_ID}]}
 id=${list_ids[${SLURM_ARRAY_TASK_ID}]}
 
