@@ -39,9 +39,9 @@ def handle_program_options():
                         help="Give False as an argument to stop generation \
                             of fasta sequences of outliers found")
     parser.add_argument('-k', '--kraken_db', required=True,
-                        help="path to the kraken database folder")
+                        help="path to the folder containing the kraken database you wish to use")
     parser.add_argument('-c', '--conda_env', required=True,
-                        help="path to the kraken database folder")
+                        help="path to the conda environment configured for this pipeline in order for the srarray bash script to work properly")
     parser.add_argument('-ts', '--thres_samples', type=float, default=0.1,
                         help="Allowed proportion for a taxa to be found in samples \
                             and considered as contaminant when less than the float value")
@@ -59,10 +59,10 @@ def convert_list(py_list):
 
 def check_reads(path_input, id_sample, number, path_output):
     """ from an input path, a sample id, the number of paired reads (either 1 or 2), test the path then check if read files are present 
-        and single-copied, and returns the file name if validated. If not, False is returned to cut the decontamination workflow for the sample. """
+        and single-copied, and returns the file name if validated. If not, False is returned to cut the sample from the decontamination workflow """
     message = ""
     if os.path.exists(path_input):
-        file_list = glob.glob(path_input + f"{id_sample}*R{number}.fastq*")    # find files corresponding to regex
+        file_list = glob.glob(path_input + f"{id_sample}*R{number}.fastq*")    # find files corresponding to regex in order to detect R& and R2 fastq file. (accept compressed files as well)
         if len(file_list) < 1:
             message = f"Error : no file found for {id_sample} R{number}:\nSample ejected from the workflow.\n"
             return False, message 
@@ -102,7 +102,7 @@ def launch_sarray(name, nb_files, max_array, args, script, suffix):
     Generates, prints and launches a sarray command and waits for the end of the job using *wait_sarray* function
     """
     tmp_file=f"tmp_{name}_{suffix}.log"
-    if os.path.exists(tmp_file):    # generates a new file
+    if os.path.exists(tmp_file):    # generates a new file temporary file to keep track of the sarray progressy, alpha feature to improve for final version
         os.remove(tmp_file)
     parameters=f"--array=0-{nb_files-1}%{max_array} -o {logs_dir}{name}_%a.log -e {logs_dir}{name}_%a.log --job-name={name}_{suffix}"
     print(f"command {name} :\nsbatch {parameters} ./{script} {args} {tmp_file}")
@@ -113,7 +113,7 @@ def launch_sarray(name, nb_files, max_array, args, script, suffix):
     
 def wait_sarray(tmp_file, nb_files):
     """ all sarray write the number of the iteration in a tmp file once complete. This function checks every minute if a file is generated, 
-        once confirmed it checks if the number of iterations is reached, and breaks if it's the case """
+        once confirmed it checks if the number of iterations is reached, and breaks if it's the case, alpha version, will be modified in the final version """
     while not os.path.exists(tmp_file):
         time.sleep(30)
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : Job has started")
@@ -127,7 +127,7 @@ def wait_sarray(tmp_file, nb_files):
 
 def get_avg(list):
     return(round(sum(list) / len(list),2))
-    """ à remplacer par la fonction de math qui donne la moyenne d'une liste"""
+    """ calculate the average coverage depth"""
 
 def get_visu_cov(cover, threshold, fig_name, id_file):
     """ Draw and save a jpg file named [[fig_name]] that shows values of coverage accross the genome and the value of the threshold
@@ -157,7 +157,7 @@ def write_bedfile(name_bedfile, name_bedgraph, threshold):
         name_bedgraph : String, name of the file to read
         threshold : Int, value of the threshold to write the bedfile
     Performs a bedgraph analysis using a theshold value to determine the outliers of a genome. Outliers 
-    are merged when too close to another one ('gap' value).
+    are merged when too close to another one ('gap' value it is fixed to 10 bp for this pipeline). region with less than 3àbp are discarded to reduce computation time on unsignificant outliers regions
     Output : 
         none, but bedfile is written
     """
@@ -210,9 +210,9 @@ def write_bedfile(name_bedfile, name_bedgraph, threshold):
 
                 if (int(line[3])<=threshold and passed):  # if cover ends exceeding the threshold...
                     passed = False              # ...region is ended...
-                    last_start=start                ##
-                    last_end=end                     #
-                    last_contig=the_contig           # 
+                    last_start=start               
+                    last_end=end                     
+                    last_contig=the_contig            
                     waiting=True                     ## .... and saved and marked as waiting for next test 
                     #print(f"finished :  {line}\n")
 
@@ -241,7 +241,7 @@ def taxName2taxID(list_names):
         Output : 
             dictionnary {taxName : taxID}, list of taxNames which failed their identification
     """
-    Entrez.email = 'yann.sevellec@univ-rennes1.fr'
+    Entrez.email = 'yann.sevellec@univ-rennes1.fr'  #variable to change in the online version
     dico_convert = {}
     error = []
     for i, taxName in enumerate(list_names) :
@@ -304,7 +304,7 @@ def meta_analysis(taxas_outliers, df_main_samples, dico_convert, suffix):
 
 ### general parameters 
         
-task = 10              # task authorized for standard sbatches 
+task = 10              # task authorized for standard sbatches script
 task_for_kraken = 5    # task authorized for kraken sbatches (require 300Gb of memory each)
 
 global list_path_input, list_ids
@@ -314,11 +314,11 @@ global nb_files
 ### assessing index file and others by getting the arguments 
 arguments = handle_program_options()        
 
-### assimilate them
+### setting up the main variables
 path_index_file = arguments.input
-output = arguments.output           ###
+output = arguments.output           
 suffix = arguments.name               ### only one output path and suffix as meta-analysis is performed
-get_Fasta = arguments.fasta         # option to generate an optional file of fasta sequences found in peaks (junk)
+get_Fasta = arguments.fasta         # option to generate an optional file of fasta sequences found in outliers regions (potential contaminated assembly)
 thres_outliers = arguments.thres_outliers       
 thres_samples = arguments.thres_samples
 path_blacklist = arguments.blacklist
@@ -344,22 +344,22 @@ except :
     print(f"Error : index file not found at {path_index_file}")
     sys.exit()
 
-### checking the lecture of index file 
+### checking the index file for both path and ids
 if list_path_input == [] or list_ids == []:
     print(f"Error : index file {path_index_file} is empty")
     sys.exit()
 
 
-### preparing data for bash scripts
+### preparing data for bash scripts by creating a list of path and id to run through the script
 list_path_input_sh=convert_list(list_path_input)
 list_ids_sh=convert_list(list_ids)
 
-nb_files=len(list_ids)
-print(f"\nSuccessfully found {nb_files} valid lines in index file. Processing directory building...\n")
+nb_files=len(list_ids) #total number if file to expect
+print(f"\n {nb_files} valid lines found in index file. building corresponding output directories...\n")
 
 ################### Preparing environment : building output directories and checking the input #######################
 
-### building run directory
+### building run directory, if the file already exist it is overwritten
 run_dir=f"{output}{suffix}/"
 try :
     os.makedirs(run_dir)
@@ -369,19 +369,20 @@ except :
 ### redirect all prints to a general log file
 general_log = f"{run_dir}general_log_{suffix}.log"
 print(f"All prints will now be saved in {general_log} file.")
-if os.path.exists(general_log):    # generates a new file
+if os.path.exists(general_log):    # rewrite the log if already existing
     os.remove(general_log)
 sys.stdout = open(general_log, 'a')
 
-### same for errors
+### same for errors log
 err_log = f"{run_dir}errors_log_{suffix}.log"
 print(f"{err_log} file generated for possible errors.")
 if os.path.exists(err_log):  
     os.remove(err_log)
 sys.stderr = open(err_log, 'a')
 
+#creation of the output directories for each SAG and checking reads, eliminating incomplete samples
 i = 1
-while i < nb_files:     # 'while' perform better than 'for' when in need to remove a sample from the set 
+while i < nb_files:      
     
     ### building directories
     sample=list_ids[i]
@@ -424,27 +425,27 @@ try :
 except :
     pass
 
-### prepare_decontaxo : assembly, alignment and bam generation
+### prepare_decontaxo : assembly, alignment, bam generation and sorting use of bedtools to generate bedgraph
 args = f"{list_path_input_sh} {list_ids_sh} {suffix} {output} {conda_env}"
 launch_sarray("prepare_decontaxo", nb_files, task, args, "prepare_decontaxo.sh", suffix)  
 
 ### kraken_on_reads : get kraken reports of trimmed reads
 args = f"{list_path_input_sh} {list_ids_sh} {suffix} {output} {conda_env} {kraken_db}"
-launch_sarray("kraken_on_reads", nb_files, task_for_kraken, args, "kraken_on_reads.sh", suffix)      # let's not reach 3TB of memory for kraken sarrays (arrays limited to 5)  
+launch_sarray("kraken_on_reads", nb_files, task_for_kraken, args, "kraken_on_reads.sh", suffix)      # lsimultenous task limited to 5 by default due to high memory requierement. Warning! change mem is heavier db needed in the kraken bash files
 
 ### kraken_on_assembly : get kraken reports of contigs on trimmed 
 launch_sarray("kraken_on_assembly", nb_files, task_for_kraken, args, "kraken_on_assembly.sh", suffix)     
 
 ## visu_cov and get_peaks : 
 # df for overall stats 
-df_summary = pd.DataFrame(columns=['file', 'mean', 'max', 'standard error', 'length', 'threshold'])
+df_summary = pd.DataFrame(columns=['file', 'mean coverage depth', 'max depth', 'coverage depth standard error', 'SAG length', 'threshold'])
 index = 0
 while index < len(list_ids):        # needs a while instead of a for to reduce index if something failed
 
     print(f"\n{index+1} out of {len(list_ids)}")
     id_file=list_ids[index] 
 
-    ### To define the threshold
+    ### To define the threshold from the bedgraph files
     sample_dir=f"{run_dir}{id_file}"
     with open(f"{sample_dir}/{id_file}.log", "a") as log :   
         try :
@@ -491,7 +492,7 @@ while index < len(list_ids):        # needs a while instead of a for to reduce i
             nb_files = remove_sample(index, nb_files)
             continue            # ...abort file filling
         
-        ### get values to define the threshold
+        ### get values to define the threshold for a z-score =2
         mean = get_avg(cover)
         std = np.std(cover)
         threshold = int(mean + 2*std)
@@ -536,12 +537,11 @@ args = f"{list_path_input_sh} {list_ids_sh} {suffix} {output} {conda_env} {krake
 launch_sarray(f"kraken_on_peaks", nb_files, task_for_kraken, args, "kraken_on_peaks.sh", suffix)
 
 ## get main taxas
-df_main_outliers = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb', 'taxo']) 
-df_main_outliers_unique_strains = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb', 'taxo'])    # dataframe havins one example of each strain found as main in each outlier
 df_main_samples = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb', 'taxo'])
-#creation outliers file
+#creation outliers file & folders
 taxon_dir= run_dir + "meta_analysis/"
 outliers_dir = run_dir + "outliers/"
+df_main_outliers_unique_strains = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb', 'taxo'])    # dataframe compiling the main outliers for all the samples
 try :
     os.makedirs(taxon_dir)
 except :
@@ -552,16 +552,17 @@ try :
 except :
     print(f"The run directory {outliers_dir} already exist")
 
+#creation of a list to keep track of the outlier main taxons from the whole collection
 list_global_outliers=[]
 
 #extract and store main sample taxon and outliers main taxons
 for SAGs in list_ids:
-    list_outliers=[]
-    empty_reports=[]
+    list_outliers=[] #sample individuel outlier list
+    empty_reports=[] #keep track of empty or unassigned reads files.
     outlier_id=SAGs
     sample_dir=f"{run_dir}{SAGs}"
     reports_dir = f"{sample_dir}/decontamination/kraken_reports/"
-    krep_csv =f"{sample_dir}/{SAGs}_converted_kraken_report.csv"
+    krep_csv =f"{sample_dir}/{SAGs}_converted_kraken_report.csv" #Warning! evaluate the utility of this report
     krep_sample = f"{reports_dir}{SAGs}_{suffix}_trimmed_report.txt"
     df_taxas_main_sample = krep.convert_report(krep_sample)
     main_taxa_sample = krep.extract_main_taxa(df_taxas_main_sample)
@@ -575,9 +576,9 @@ for SAGs in list_ids:
         krep_name = krep_name_full.replace(suffix + "_","")
         krep_name = krep_name.replace("_report.txt","")
         df_taxas_outliers = krep.convert_report(outlier)
-        if len(df_taxas_outliers) == 0:                             ##
-            valid_reports -= 1                                       #
-            empty_reports.append(krep_name_full)                     #
+        if len(df_taxas_outliers) == 0:                             
+            valid_reports -= 1                                       
+            empty_reports.append(krep_name_full)                     
             continue                                                 ## if the dataframe is empty, its name is saved and next report is processed   
         else : 
             main_taxa_outlier = krep.extract_main_taxa(df_taxas_outliers)               ## ectraction of main taxa from outliers
@@ -586,11 +587,11 @@ for SAGs in list_ids:
             df_main_outliers.loc[krep_name] = main_taxa_outlier
             #print(f"The main taxon for {krep_name} is {main_taxa_outlier['taxName']}")
             #print(df_main_outliers['sampleID']+ " "+ df_main_outliers["taxName"])
-            if str(main_taxa_outlier['taxID']) not in list_outliers :    ## and adding it to the ddf counting taxas found in the sample if first time encountere
+            if str(main_taxa_outlier['taxID']) not in list_outliers :    ## and adding it to the ddf counting taxas found in the sample if first time encountered
                 list_outliers.append(str(main_taxa_outlier['taxID']))
                 df_main_outliers_unique_strains.loc[krep_name] = main_taxa_outlier
                 #print(f"added {df_main_outliers['taxName']} to the unique id list from {df_main_outliers['sampleID']}")
-    taxas_outliers, nb_others = krep.sample_vs_outliers(main_taxa_sample, df_main_outliers)
+    taxas_outliers, nb_others = krep.sample_vs_outliers(main_taxa_sample, df_main_outliers) #check if the main taxon of the sample is the same as the outlier one
     total = len(taxas_outliers)
     message = f"\nAmong {total} outliers, {nb_others} were found having a main taxa different than the one found in trimmed reads\n"
     message = message + f"Taxa \t\t occurrency_in_outliers\n"
@@ -602,7 +603,7 @@ for SAGs in list_ids:
     list_global_outliers.append(taxas_outliers)
     #print(f"The main taxon for {main_taxa_sample['sampleID']} is {main_taxa_sample['taxName']}")
     #print(taxas_outliers)
-    df_main_outliers.to_csv(f"{sample_dir}/{SAGs}_outliers.csv", index=True)
+    df_main_outliers.to_csv(f"{sample_dir}/{SAGs}_outliers.csv", index=True) #creation of an sample outlier file.
     if len(empty_reports) != 0:
         nb_outliers=len(glob.glob(f"{reports_dir}*junk*_report.txt"))
         message = f"{valid_reports} reports out of {nb_outliers} were not empty or not filled with unassigned reads.\n"
@@ -612,14 +613,14 @@ for SAGs in list_ids:
         with open(f"{sample_dir}/{SAGs}.log", "a") as log :
             log.write(message+"\n")
     list_global_outliers.append(taxas_outliers)
-    df_main_outliers.to_csv(f"{outliers_dir}/{SAGs}_outliers.csv", index=True)
+    df_main_outliers.to_csv(f"{outliers_dir}/{SAGs}_outliers.csv", index=True) #write outlier detected into the csv file
 #print(df_main_outliers_unique_strains)
-df_main_samples.to_csv(f"{taxon_dir}Main_taxons_samples_{suffix}.csv", header=True)
+df_main_samples.to_csv(f"{taxon_dir}Main_taxons_samples_{suffix}.csv", header=True) #report the main taxon for each sample
 
 log = open(general_log, 'a')
 #parse main taxon for anomalies
 occurrency_in_main = df_main_samples['taxName'].value_counts()
-if occurrency_in_main.iloc[0] > 0.7 * len(list_ids):     # if a taxa if found as main in more than 90% of samples... 
+if occurrency_in_main.iloc[0] > 0.7 * len(list_ids):     # if a taxa if found as main in more than 70% of samples... 
     conta_name = occurrency_in_main.index[0]
     dicoID, error = taxName2taxID([conta_name])
     conta_ID = dicoID[conta_name]
@@ -638,21 +639,21 @@ if err :
     print(" ".join(e for e in err))
     print("taxas with a * have several taxas IDs referenced that will be used for decontamination. Others don't have any ID proposed \n")
     # print(dico_convert)
-#creation du rapport
+#creation of metanalysis report with the ratio for each relevant outlier detected for each sample count the number of occurence for each main taxon and each outlier (outlier are counted only once per sample)
 df_meta = meta_analysis(taxas_found, df_main_samples, dico_convert, suffix)
 meta_file = f"{taxon_dir}results_meta_analysis_{suffix}.csv"
 df_meta.to_csv(meta_file, header=True)
 log.write(f"Results of meta-analysis available in file : \n{meta_file} \n")
 
-### extracting contaminants into a list 
+### extracting contaminants into a list using the outlier thresold ans sample thresold
 contaminants = []
 for index, row in df_meta.iterrows():
-    if row['ratio_outliers']>thres_outliers and row['ratio_samples']<thres_samples:
+    if row['ratio_outliers']>thres_outliers and row['ratio_samples']<thres_samples: #a contaminant is added of present il more than thresold outlier and present in less than thresold sample
         contaminants.append(row['taxID'])
         message = f"{row['taxName']} of ID {row['taxID']} has been added as contaminant. \n"
         log.write(message)
 
-if len(contaminants) == 0:
+if len(contaminants) == 0: #stop the script if no contaminant have benne fond by the program to avoid wasting time with a new assembly
     message = f"ERROR : no contaminant having an occurrency >{thres_outliers} in outliers and <{thres_samples} in samples in this run.\n"
     message = message + f"Please consider change settings of values 'thres_outliers' and 'thres_samples' while launching the code \n"
     log.write(message)
