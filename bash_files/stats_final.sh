@@ -29,4 +29,4 @@ assembly_name=${assembly##*/}
 assembly_name=$(echo $assembly_name | sed -e "/_ecrem_contigs/_final_assembly/g");
 echo "assembly_name : $assembly_name"
 cp $assembly "${assem_dir}${assembly_name}"
-
+echo "sample ${SLURM_ARRAY_TASK_ID} : $id" >> $tmp_file
