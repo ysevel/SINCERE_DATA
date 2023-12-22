@@ -8,13 +8,21 @@ The script is optimized to work with conda environment with the required program
 It will run sarray bash script but an updated version will be provided soon that rely solely on python scripts.
 
 requirement:
+
 fastqc V. 0.11+
+
 spades V. 3.15+
+
 kraken2 V. 2.1+
+
 bowtie2 V. 2.4+
+
 samtools V. 1.9+
+
 bedtools V. 2.30+
+
 krakentools : https://github.com/jenniferlu717/KrakenTools
+
 quast V. 5.0+
 
 python requierment:
