@@ -675,7 +675,7 @@ if path_blacklist !=None:
 contaminants_sh = convert_list(contaminants)
 args_krakentools = f"{list_path_input_sh} {list_ids_sh} {suffix} {output} {contaminants_sh}"
 launch_sarray(f"krakentools", nb_files, task, args_krakentools, "krakentools.sh", suffix)
-log.write("taxon selected for decontamination: " + ''.join(str(e) for e in contaminants) + "from blacklist and contamination assessement \n")  
+log.write("taxon selected for decontamination: " + ' '.join(str(e) for e in contaminants) + "from blacklist and contamination assessement \n")  
 log.write("decontamination ended")
 ### remove krakentools logs as they take A LOT of space
 for krakentool_log in Path(logs_dir).glob('krakentools*.log') : 
