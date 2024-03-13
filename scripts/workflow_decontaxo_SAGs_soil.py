@@ -600,10 +600,8 @@ for SAGs in list_ids:
     #for name in taxas_outliers.keys():
             #log.write(f"{name} \t\t {taxas_outliers[name]}\n")
             # print(f"{name} \t\t {taxas_outliers[name]}")
-    list_global_outliers.append(taxas_outliers)
     #print(f"The main taxon for {main_taxa_sample['sampleID']} is {main_taxa_sample['taxName']}")
     #print(taxas_outliers)
-    df_main_outliers.to_csv(f"{sample_dir}/{SAGs}_outliers.csv", index=True) #creation of an sample outlier file.
     if len(empty_reports) != 0:
         nb_outliers=len(glob.glob(f"{reports_dir}*junk*_report.txt"))
         message = f"{valid_reports} reports out of {nb_outliers} were not empty or not filled with unassigned reads.\n"
