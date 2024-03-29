@@ -25,10 +25,16 @@ krakentools : https://github.com/jenniferlu717/KrakenTools
 quast V. 5.0+
 
 python library requirement:
+
 panda
+
 numpy
+
 Biopython
+
 matplotlib
+
+To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash and script folder into the directory you wish to run the program from.
 
 This tools is designed to work on already trimmed reads and will make a preliminary assembly based on spades in singlecell mode. 
 An reads alignment is performed on the assembled genome using bowtie2 and samtools and the coverage depth is calculated using bedtools.
