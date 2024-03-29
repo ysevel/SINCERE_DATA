@@ -1,4 +1,3 @@
-# SINCERE_DATA
 SINCERE DATA : SINgle-CEll REads Decontamination through Automatic Taxonomic Assignation
 
 This is the version 0.1 of the sincere_data pipeline actually provided for the genouest cluster users. 
@@ -25,7 +24,7 @@ krakentools : https://github.com/jenniferlu717/KrakenTools
 
 quast V. 5.0+
 
-python requierment:
+python library requirement:
 panda
 numpy
 Biopython
@@ -39,9 +38,7 @@ kraken2 is used to detect the main taxon from the assembly and the outlier regio
 
 Usage:
 
-python 
-
-python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio default = 0.1]  -to [|outlier ratio, default =0.3]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
+python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
 
 arguments :
 
@@ -58,6 +55,6 @@ arguments :
 
 -ts –thres_sample (default= 0.1): Allowed proportion for a taxa to be found in samples and considered as contaminant when less than the float value
 
--to –thres_outlier (default= 0.3): Minimal proportion for a taxa found in the collection to be considered as contaminant when upper than the float value
+-to –thres_outlier (default= 0.2): Minimal proportion for a taxa found in the collection to be considered as contaminant when upper than the float value
 
 -b –blacklist (default=none) : path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Careful it will eliminate all the children taxa as well!
