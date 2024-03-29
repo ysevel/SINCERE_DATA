@@ -45,7 +45,7 @@ def handle_program_options():
     parser.add_argument('-ts', '--thres_samples', type=float, default=0.1,
                         help="Allowed proportion for a taxa to be found in samples \
                             and considered as contaminant when less than the float value")
-    parser.add_argument('-to', '--thres_outliers', type=float, default=0.9,
+    parser.add_argument('-to', '--thres_outliers', type=float, default=0.2,
                         help="Minimal proportion for a taxa found in outliers to be \
                             considered as contaminant when upper than the float value")
     parser.add_argument('-b', '--blacklist', required=False ,default=None,
