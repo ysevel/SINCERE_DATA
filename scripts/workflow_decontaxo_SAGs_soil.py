@@ -623,7 +623,7 @@ if occurrency_in_main.iloc[0] > 0.7 * len(list_ids):     # if a taxa if found as
     dicoID, error = taxName2taxID([conta_name])
     conta_ID = dicoID[conta_name]
     message = f"WARNING : {conta_name} taxa of taxID {conta_ID} is found as main in more than 70% of the samples.\n"
-    message += "Please consider decontaminating this taxa before running this pipeline\nTaxa occurrency in main :\n"
+    message += "Please consider decontaminating this taxa before running this pipelinec again\nTaxa occurrency in main :\n"
     log.write(message)
     sys.exit()
 nb_files=len(list_ids)
