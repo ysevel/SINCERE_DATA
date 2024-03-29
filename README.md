@@ -7,7 +7,7 @@ The script is optimized to work with conda environment with the required program
 It will run sarray bash script but an updated version will be provided soon that rely solely on python scripts.
 
 
-To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash and script folder into the directory you wish to run the program from.
+To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash files and scripts folder into the directory you wish to run the program from.
 
 requirement:
 
