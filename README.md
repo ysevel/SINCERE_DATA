@@ -9,7 +9,7 @@ It will run sarray bash script but an updated version will be provided soon that
 
 To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash files and scripts folder into the directory you wish to run the program from.
 
-requirement:
+Requirement:
 
 fastqc V. 0.11+
 
@@ -27,7 +27,7 @@ krakentools : https://github.com/jenniferlu717/KrakenTools
 
 quast V. 5.0+
 
-python library requirement:
+Python library requirement:
 
 panda
 
@@ -49,7 +49,7 @@ Usage:
 
 python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
 
-arguments :
+Arguments :
 
 -i --input (required): input tvs file containing the sample names and their path
 
