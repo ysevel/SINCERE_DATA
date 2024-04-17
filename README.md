@@ -68,5 +68,5 @@ Arguments :
 
 -b –blacklist (default=none) : path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Careful it will eliminate all the children taxa as well!
 
--ta thresanomaly (default=1) must be a value between 0 and 1, indicate the proportion of the sample allowed to present the same main taxa. For no verification of this parameter keep the default thresold at 1.
+-ta thres_anomaly (default=1) must be a value between 0 and 1, indicate the proportion of the sample allowed to present the same main taxa. For no verification of this parameter keep the default thresold at 1.
 
