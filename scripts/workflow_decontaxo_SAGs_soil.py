@@ -50,6 +50,8 @@ def handle_program_options():
                             considered as contaminant when upper than the float value")
     parser.add_argument('-b', '--blacklist', required=False ,default=None,
                         help="path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well!")
+    parser.add_argument('-ta', '--thres_anomaly', type=float ,default=1,
+                        help="must be a value between 0 and 1, indicate the proportion of the sample allowed to present the same main taxa (default= 1: for no alert for overrepresented main taxa)")
     return parser.parse_args()
 
 def convert_list(py_list):
@@ -324,6 +326,7 @@ thres_samples = arguments.thres_samples
 path_blacklist = arguments.blacklist
 kraken_db = arguments.kraken_db
 conda_env= arguments.conda_env
+main_abnormal_thresold= argument.thres_anomaly
 
 list_path_input, list_ids = [], []
 
@@ -617,15 +620,16 @@ df_main_samples.to_csv(f"{taxon_dir}Main_taxons_samples_{suffix}.csv", header=Tr
 
 log = open(general_log, 'a')
 #parse main taxon for anomalies
-occurrency_in_main = df_main_samples['taxName'].value_counts()
-if occurrency_in_main.iloc[0] > 0.7 * len(list_ids):     # if a taxa if found as main in more than 70% of samples... 
-    conta_name = occurrency_in_main.index[0]
-    dicoID, error = taxName2taxID([conta_name])
-    conta_ID = dicoID[conta_name]
-    message = f"WARNING : {conta_name} taxa of taxID {conta_ID} is found as main in more than 70% of the samples.\n"
-    message += "Please consider decontaminating this taxa before running this pipelinec again\nTaxa occurrency in main :\n"
-    log.write(message)
-    sys.exit()
+if main_abnormal_thresold !=1
+    occurrency_in_main = df_main_samples['taxName'].value_counts()
+    if occurrency_in_main.iloc[0] > main_abnormal_thresold * len(list_ids):     # if a taxa if found as main in more samples than the thresold...
+        conta_name = occurrency_in_main.index[0]
+        dicoID, error = taxName2taxID([conta_name])
+        conta_ID = dicoID[conta_name]
+        message = f"WARNING : {conta_name} taxa of taxID {conta_ID} is found as main in more than {main_abnormal_thresold} of the samples it main be a sign of contamination.\n"
+        message += "If it not expected, please consider decontaminating this taxa before running this pipeline\nTaxa occurrency in main, it can be done by adding the corresponding taxa in the blacklist and set thres_anomaly to 1 and relaunch the pipeline:\n"
+        log.write(message)
+        sys.exit()
 nb_files=len(list_ids)
 df_main_outliers_unique_strains.to_csv(f"{taxon_dir}Main_taxons_outliers_{suffix}.csv", header=True)
 taxas_found = count_taxa_outliers(list_global_outliers)
