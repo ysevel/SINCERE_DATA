@@ -326,7 +326,7 @@ thres_samples = arguments.thres_samples
 path_blacklist = arguments.blacklist
 kraken_db = arguments.kraken_db
 conda_env= arguments.conda_env
-main_abnormal_thresold= argument.thres_anomaly
+main_abnormal_thresold= arguments.thres_anomaly
 
 list_path_input, list_ids = [], []
 
@@ -620,7 +620,7 @@ df_main_samples.to_csv(f"{taxon_dir}Main_taxons_samples_{suffix}.csv", header=Tr
 
 log = open(general_log, 'a')
 #parse main taxon for anomalies
-if main_abnormal_thresold !=1
+if main_abnormal_thresold !=1:
     occurrency_in_main = df_main_samples['taxName'].value_counts()
     if occurrency_in_main.iloc[0] > main_abnormal_thresold * len(list_ids):     # if a taxa if found as main in more samples than the thresold...
         conta_name = occurrency_in_main.index[0]
