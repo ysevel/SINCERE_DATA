@@ -1,4 +1,4 @@
-SINCERE DATA : SINgle-CEll REads Decontamination through Automatic Taxonomic Assignation
+# SINCERE DATA : SINgle-CEll REads Decontamination through Automatic Taxonomic Assignation
 
 This is the version 0.1 of the sincere_data pipeline actually provided for the genouest cluster users. 
 
@@ -9,7 +9,7 @@ It will run sarray bash script but an updated version will be provided soon that
 
 To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash files and scripts folder into the directory you wish to run the program from.
 
-Requirement:
+## Requirement:
 
 fastqc V. 0.11+
 
@@ -37,7 +37,7 @@ Biopython
 
 matplotlib
 
-Overview: 
+## Overview: 
 
 This tools is designed to work on already trimmed reads and will make a preliminary assembly based on spades in singlecell mode. 
 An reads alignment is performed on the assembled genome using bowtie2 and samtools and the coverage depth is calculated using bedtools.
@@ -45,11 +45,11 @@ it will then evaluate the reads alignment depth and detect outlier region based 
 
 kraken2 is used to detect the main taxon from the assembly and the outlier regions to identify potential contaminants based on divergences in the taxonomy and to detect contamination that overlap with the other single cell assembled genomes (SAGs) from a collection. The potential contaminant are 
 
-Usage:
+## Usage:
 
 python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
 
-Arguments :
+ ### Arguments :
 
 -i --input (required): input tvs file containing the sample names and their path
 
