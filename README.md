@@ -47,7 +47,7 @@ kraken2 is used to detect the main taxon from the assembly and the outlier regio
 
 ## Usage:
 
-python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
+python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio, default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
 
  ### Arguments :
 
