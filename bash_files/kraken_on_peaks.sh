@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -p genouest,bigmem,ecobio
+
 #SBATCH --cpus-per-task 8
 #SBATCH --mem=300G
 . /local/env/envconda.sh 
