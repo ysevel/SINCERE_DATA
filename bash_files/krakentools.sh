@@ -36,7 +36,7 @@ output2=$output_dir$id"_"$suffix"_decontaxo_R2.fastq"
 touch $tmp_file
 
 
-echo "python /scratch/ysevellec/script/KrakenTools-master/extract_kraken_reads.py -1 $reads_R1 -2 $reads_R2 -k $kraken_result -o $output1 -o2 $output2 -t $contaminants --report $kraken_report --include-children --exclude --fastq-output"
-python /scratch/ysevellec/script/KrakenTools-master/extract_kraken_reads.py -1 $reads_R1 -2 $reads_R2 -k $kraken_result -o $output1 -o2 $output2 -t $contaminants --report $kraken_report --include-children --exclude --fastq-output
+echo "python extract_kraken_reads.py -1 $reads_R1 -2 $reads_R2 -k $kraken_result -o $output1 -o2 $output2 -t $contaminants --report $kraken_report --include-children --exclude --fastq-output"
+python extract_kraken_reads.py -1 $reads_R1 -2 $reads_R2 -k $kraken_result -o $output1 -o2 $output2 -t $contaminants --report $kraken_report --include-children --exclude --fastq-output
 
 echo "sample ${SLURM_ARRAY_TASK_ID} : $id" >> $tmp_file
