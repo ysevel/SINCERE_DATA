@@ -11,6 +11,8 @@ To install the tools, create a conda environment with all the requiered tools an
 
 ## Requirement:
 
+bbmap V. 38.18+
+
 fastqc V. 0.11+
 
 spades V. 3.15+
