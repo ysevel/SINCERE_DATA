@@ -66,8 +66,7 @@ def process_sample(kraken_report, max_rank, min_rank):
 
     names, scounts, staxa = parse_kraken_report(kdata, max_rank=max_rank, min_rank=min_rank)
 
-    ### 24/07/23 : Yann, j'ai repéré que staxa est un dictionnaire plutôt convaincant pour la taxonomie, qui permettrait d'éviter 
-    # d'avoir à convertir en string puis encore en dictionnaire derrière 
+    ### 24/07/23 : staxa is a dictonnary made to avoid transforming the taxa in string then to dictonnary agai
 
     # update master records
     taxa.update(staxa)
