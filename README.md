@@ -60,6 +60,7 @@ python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [
 -n --name (required): suffix for the output file and run directory
 
 -f --fasta (default =false): Give False as an argument to stop generation of fasta sequences of outliers found
+
 -k –kraken_db (required): Path to the kraken db 
 
 -c -conda_env (required): name of the conda environment the pipeline is installed in (beta version, soon to be removed)
