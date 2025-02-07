@@ -1,6 +1,6 @@
 # SINCERE DATA : SINgle-CEll REads Decontamination through Automatic Taxonomic Assignation
 
-This is the version 0.2 of the sincere_data pipeline actually provided for the genouest cluster users. 
+This is the version 1.0.0 of the sincere_data pipeline actually provided for the genouest cluster users. 
 
 The script is optimized to work with conda environment with the required programs.
 
