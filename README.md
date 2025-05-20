@@ -4,7 +4,13 @@ This is the version 1.1.0 of the sincere_data pipeline actually provided for the
 
 The script is optimized to work with conda environment with the required programs.
 
-It will run sarray bash script but an updated version will be provided soon that rely solely on python scripts.
+The pipeline consiste in five different step that perform
+
+- reads filtering of undesired taxons or know contaminants (Sincere-data_reads_filtering.py)
+- screening the whole dataset for sphlashome type of contamination (splashome_filter.py)
+- research of outlier regions and outlier analysis (Sincere-data_outlier_predictor.py)
+- méta-analysis of the outliers to compute a list of potential contaminants (Sincere-data_meta_analysis.py)
+- decontamination of the reads and contigs based on this contaminant list (Sincere-data_decontamination.py)
 
 
 To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash files and scripts folder into the directory you wish to run the program from. Then, download Krakentools from https://github.com/jenniferlu717/KrakenTools and drop all the files in the Sincere-DATA installation directory.
