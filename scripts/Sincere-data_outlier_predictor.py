@@ -55,7 +55,7 @@ def handle_program_options():
     parser.add_argument('-b', '--blacklist', required=False ,default=None,
                         help="Path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well!")
     parser.add_argument('--splash', action='store_true',
-                        help='Use this option if you performed the step 2 of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value, run at your own risks.')
+                        help='Use this option if you performed the sphlashome analysis functionnality of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value.')
     return parser.parse_args()
 
 

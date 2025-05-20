@@ -143,8 +143,7 @@ def taxName2taxID(list_names,email):
                 dico_convert[taxName] = "Failed"
             else:
                 error.append(taxName+"*")
-                taxID = record['IdList']
-                taxID = convert_list(taxID)
+                taxID = record['IdList'][0]
                 dico_convert[taxName] = taxID
     
     return dico_convert, error
@@ -195,7 +194,7 @@ if os.path.exists(taxon_dir):
     print(f"sucessfully found the taxon directory: {taxon_dir}\n")
 else:
     print(f"WARNING: the directory {taxon_dir} does not exist, it is likely that the script splashome_filter.py have not been run on the samples prior to running this Script. As the splahome_filter.py is an important part of the pipeline you should consider running it before running this script again.")
-    mkdir(taxon_dir)
+    os.makedirs(taxon_dir)
 missing_file=f"{run_dir}missing_id.txt"
 check_missing_samples(path_index_file, missing_file)
 nb_files=len(list_id)
@@ -240,10 +239,6 @@ df_main_samples = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb
 df_main_outliers_unique_strains = pd.DataFrame(columns=['sampleID','taxID', 'taxName', 'reads_nb', 'taxo'])    # dataframe havins one example of each strain found as main in each outlier
 list_global_outliers=[]
 
-
-###### work in progress ci dessous/////
-
-print(list_id)
 #extract and store main sample taxon and outliers main taxons
 for SAGs in list_id:
     list_outliers=[]
