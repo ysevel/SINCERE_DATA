@@ -16,34 +16,31 @@ The pipeline consiste in five different step that perform
 To install the tools, create a conda environment with all the requiered tools and drop all the script from the bash files and scripts folder into the directory you wish to run the program from. Then, download Krakentools from https://github.com/jenniferlu717/KrakenTools and drop all the files in the Sincere-DATA installation directory.
 
 ## Requirement:
+bbmap V.39.09 +
 
-bbmap V. 38.18+
+bedtools V.2.31.1 +
 
-fastqc V. 0.11+
+biopython V.1.84
 
-spades V. 3.15+
+bowtie2 V.2.5.4 +
 
-kraken2 V. 2.1+
-
-bowtie2 V. 2.4+
-
-samtools V. 1.9+
-
-bedtools V. 2.30+
+kraken2 V.2.1.3 +
 
 krakentools : https://github.com/jenniferlu717/KrakenTools
 
-quast V. 5.0+
+matplotlib-base V.3.9.2 +
 
-### Python library requirement:
+numpy V. 1.26 +
 
-panda
+pandas V.2.2.2 +
 
-numpy
+platon V.1.7 +
 
-Biopython
+quast V.5.2.0 +
 
-matplotlib
+samtools V.1.21 +
+
+spades V.4.0.0 +
 
 ## Overview: 
 
