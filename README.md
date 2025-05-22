@@ -56,6 +56,9 @@ A meta-analysis is conducted for each sample in order to identify the outliers r
 
 Finally, the read decontamination is performed in the third step of the workflow based on a contaminants list from both the blacklist defined by the user and the outliers taxa identified during the meta-analysis. Those contaminants are filtered out of the reads and a final assembly is conducted. The contaminant identified are also eliminated from the assembly by filtering out the contigs that are classified to a contaminant taxon. The workflow also perform quality assessment on this cleaned assembly using quast. During this step the contigs removed by Sincere-data can be kept for further analysis. an utility have been implemented to retrieve plasmid associated contigs from the contigs: Sincere-data use Platon to perform an analysis on the "junk" co,tig removed during the decontamiation stp in order to reintegrate them into the cleaned assembly.
 
+![workflow_sincere-data-final](https://github.com/user-attachments/assets/1bb0ea42-f7dd-4737-8d11-f7de75dc6480)
+
+
 ## Usage:
 
 Step 1: read filtering
