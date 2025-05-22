@@ -58,7 +58,20 @@ Finally, the read decontamination is performed in the third step of the workflow
 
 ## Usage:
 
-python workflow_decontaxo_SAGs.py -i [input datafile] -o [output directory] -n [output_suffix] -ts [sample ratio, default = 0.1]  -to [|outlier ratio, default =0.2]-b [blacklist file] -k [kraken db path] -c [conda environment to use with the bash files (beta version only)]
+Step 1: read filtering
+python Sincere-data_reads_filtering.py -i [reads_dir] -d [sample_id] -o [output_dir] -n [suffix] -k [path_to_kraken_db] -b [blacklist_file] -t [nb_thread]
+
+optional: splashome filter
+python splashome_filter.py -i [sample_id_list.txt] -o [output_directory] -n [suffix] -b [blacklist_file.txt] -ta [thresold_anomaly, default=1]
+
+step 2: outlier prediction
+python Sincere-data_outlier_predictor.py -i [input_dir] -d [sample_id] -o [output_dir] -n [suffix] -k [path_to_kraken_db] -b [blacklist_file] -t [nb_thread]
+
+Meta-analysis:
+python Sincere-data_meta_analysis.py -i [sample_id_list.txt] -o [output_directory] -n [suffix] -b [blacklist_file.txt] -ts [sample ratio, default = 0.1]  -to [|outlier ratio, default =0.2] -e yann.sevellec@univ-rennes.fr
+
+Step 3: decontamination:
+python Sincere-data_decontamination.py -i [input_dir] -d [sample_id] -o [output_dir] -n [suffix] -k [path_to_kraken_db] -c /[contaminants_list.txt] -t [nb_thread]
 
  ### Arguments :
 
