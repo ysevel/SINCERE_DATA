@@ -75,23 +75,23 @@ python Sincere-data_decontamination.py -i [input_dir] -d [sample_id] -o [output_
 
  ### Arguments :
 
--i --input (required): input tvs file containing the sample names and their path
+-i --input (required): path to the folders containing the trimmed reads.
+-d --id_file (required) path to a file containing the sample_id to be processed with sincere-data.
+-o --output (required): path to the output folder.
+-n --name (required): suffix for the output file and run directory.
+-k –kraken_db (required): Path to a kraken database.
+-b –blacklist (default=none) : path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Careful it will eliminate all the children taxa as well.
+-m –mem (optional) assign memory to kraken. otherwise will run the “--memory-mapping” option from Kraken2 that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kakren2 database into the memory best to make sure you allocated enough memory to load the whole database (see kraken2 manual for more informations).
 
--o --output (required): path to the output folder
-
--n --name (required): suffix for the output file and run directory
-
--f --fasta (default =false): Give False as an argument to stop generation of fasta sequences of outliers found
-
--k –kraken_db (required): Path to the kraken db 
-
--c -conda_env (required): name of the conda environment the pipeline is installed in (beta version, soon to be removed)
-
--ts –thres_sample (default= 0.1): Allowed proportion for a taxa to be found in samples and considered as contaminant when less than the float value
-
--to –thres_outlier (default= 0.2): Minimal proportion for a taxa found in the collection to be considered as contaminant when upper than the float value
-
--b –blacklist (default=none) : path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Careful it will eliminate all the children taxa as well!
-
+#### Step 1 specific parameters parameters
 -ta thres_anomaly (default=1) must be a value between 0 and 1, indicate the proportion of the sample allowed to present the same main taxa. For no verification of this parameter keep the default thresold at 1.
+--overwrite_first_run (defualt=none) If set, this option will allow sincere data to overwrite the kraken results for the trimmed reads. This option allow to start a fresh kraken classification on a new run of this step.
+
+#### Step 2 specific parameters
+-f --fasta (default =false): Give False as an argument to stop generation of fasta sequences of the outliers found at this step of the pipeline.This option can be useful to investigate the reads corresponding to the outlier region and to check for possible error in the contaminants assessment.
+-ts –thres_sample (default= 0.1): Allowed proportion for a taxa to be found in samples and considered as contaminant when less than the float value.
+-to –thres_outlier (default= 0.2): Minimal proportion for a taxa found in the collection to be considered as contaminant when upper than the float value.
+
+#### Step 3 specific parameters
+-l –input_missing_id_file (requiered): Path to a text file containing the list of sample ids that were previously removed from the analysis. This file will be updated into a new file with the new missing sample ids.
 
