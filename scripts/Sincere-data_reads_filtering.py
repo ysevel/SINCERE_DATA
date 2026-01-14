@@ -112,7 +112,7 @@ def blacklist_filtering(R1_file, R2_file, id_sample,output,kr_filter_out, suffix
     except:
         f"Warning : sample directory {output_dir}/ already existing. Overwriting..."
 
-    filter_contam=f"python /scratch/ysevellec/script/KrakenTools-master/extract_kraken_reads.py -1 {R1_file} -2 {R2_file} -k {kr_filter_out} -o {output_dir}/{id_sample}_{suffix}_R1.fastq -o2 {output_dir}/{id_sample}_{suffix}_R2.fastq -t {contaminants} --include-children --exclude --report {kr_filter_reports} --fastq-output"
+    filter_contam=f"python extract_kraken_reads.py -1 {R1_file} -2 {R2_file} -k {kr_filter_out} -o {output_dir}/{id_sample}_{suffix}_R1.fastq -o2 {output_dir}/{id_sample}_{suffix}_R2.fastq -t {contaminants} --include-children --exclude --report {kr_filter_reports} --fastq-output"
     print("read filtering command :\n" + filter_contam) #specific log for the reads filtering operation
     log_filter=f"{sample_dir}{id_sample}_{suffix}_filter_reads.log"
     with open(log_filter,'w')as log_f:
