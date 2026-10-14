@@ -420,7 +420,7 @@ def threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sam
         ## writing and displaying results
         if get_Fasta == True: ### generates fasta files [option] 
             fasta_file=f"{decontam_dir}/assembly/{id_sample}_{suffix}_peaks.fasta"
-            os.system(f"bedtools getfasta -fi {decontam_dir}/assembly/{id_sample}_{suffix}_prelim_assembly.fasta -bed {outlier_bedfile} -name > {fasta_file}")
+            subprocess.run(f"bedtools getfasta -fi {decontam_dir}/assembly/{id_sample}_{suffix}_prelim_assembly.fasta -bed {outlier_bedfile} -name > {fasta_file}",stdout=log_t,stderr=subprocess.STDOUT, shell=True)
             message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : {outlier_bedfile} and {fasta_file} generated\n"
         else :
             message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : {outlier_bedfile} generated\n"
