@@ -159,10 +159,7 @@ def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, conta
     #specific variables
     final_dir=f"{sample_out_dir}final_assembly"
     cleaned_dir=f"{sample_out_dir}cleaned_assembly" #create the clean directory which will contain the final output of each sample.
-    try:
-        os.makedirs(cleaned_dir)
-    except:
-        f"Warning : sample directory {cleaned_dir} already existing. Overwriting..."
+    os.makedirs(cleaned_dir, exist_ok=True)
     log_clean=f"{sample_dir}{id_sample}_{suffix}_contigs_clean.log"
     kr_p_rep=f"{final_dir}/kraken_raw_assembly_reports"
     try:
@@ -284,10 +281,7 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
     if not filter_reads_R1 or not filter_reads_R2:
         return
     #final_assembly dir creation
-    try:
-        os.makedirs(f"{sample_dir}final_assembly")
-    except:
-        print(f"Warning : sample directory {sample_dir}final_assembly already existing. Overwriting...")
+    os.makedirs(f"{sample_dir}final_assembly", exist_ok=True)
 
 
     #reads_filtering after splashome decontamination:
@@ -352,7 +346,7 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
     message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : decontamination script end for sample {id_sample}\n" #print the end time of the script, in order to have easy access to the total time the script ran.
     print(message)
 
-if __name__ == "__main__":
+def main():
     arguments = handle_program_options()
     list_missing_id = []
     path_input = arguments.input
@@ -373,6 +367,8 @@ if __name__ == "__main__":
     #folder verification
     taxon_dir= f"{run_dir}meta_analysis/"
     decontam_dir=f"{sample_dir}decontamination"
+    os.makedirs(f"{sample_dir}final_assembly", exist_ok=True)
+    
 
     #check if the relevant directories exist, in order to stop the script asap if the needed folder do not exist, as this is the 5th part of the workflow 
     if os.path.exists(run_dir):
@@ -390,7 +386,7 @@ if __name__ == "__main__":
     if os.path.exists(decontam_dir):
             print(f"sucessfully found the taxon directory: {decontam_dir}\n")
     else:
-        print(f"WARNING: the directory {decontam_dir} does not exist, it is likely that the script Sincere-data_outlier_predictor.py have not been run on the samples prior to running this Script. As the meta analysis is required for this script to work properly is an important part of the pipeline you should run it before running this script again.")
+        print(f"ERROR: the directory {decontam_dir} does not exist, it is likely that the script Sincere-data_outlier_predictor.py have not been run on the samples prior to running this Script. As the meta analysis is required for this script to work properly is an important part of the pipeline you should run it before running this script again.")
         sys.exit()
     input_missing_file=f"{path_input}/missing_id.txt"
     output_missing_file=f"{output}/missing_id.txt"
@@ -414,32 +410,6 @@ if __name__ == "__main__":
             print("ERROR, the sample directory do not exist, please check the path")
             sys.exit()
     process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants)
-    #print("done!")
 
-    # Get the maximum number of logical cores and divide by nb_threads  
-    #max_workers = max(1, cpu_count() // nb_threads)  # Also ensure at least 1 worker
-    #print("CPU count: ", cpu_count(), ", running with ", max_workers, " workers.", flush=True)
-    
-    #partial_process_sample = partial(process_sample, 
-                                     #path_input=path_input,
-                                     #suffix=suffix, 
-                                     #run_dir=run_dir,
-                                     #nb_threads=nb_threads,
-                                     #mem=mem,
-                                     #kraken_db=kraken_db,
-                                     #contaminants=contaminants
-                                     #previous_missing_id_list=previous_missing_id_list,
-                                     #output_missing_file=output_missing_file)
-    
-    #with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        #executor.map(partial_process_sample, sample_ids)
-        
-    # Remove duplicates in the output missing file
-    #try: 
-     #   with open(output_missing_file, 'r') as out_miss_f:
-     #       unique_missing_ids = set(out_miss_f)
-      #  with open(output_missing_file, 'w') as out_miss_f:
-      #      for id_sample in unique_missing_ids:
-       #         out_miss_f.write(id_sample)
-    #except:
-    #    print("The output missing file is empty.")
+if __name__ == "__main__":
+    main()
