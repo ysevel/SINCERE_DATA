@@ -534,8 +534,8 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, get_Fasta,
     logger.info(f"the thresold for {id_sample} is {threshold}")
     logger.info(f"script end for sample {id_sample}") #print the end time of the script, in order to have easy access to the total time the script ran.
 
-#main and variable initialisation
-if __name__ == "__main__":
+def main():
+    '''parse the variable and launch process sample'''
     arguments = handle_program_options()
     path_input = arguments.input
     id_sample = arguments.id
@@ -575,4 +575,8 @@ if __name__ == "__main__":
         previous_missing_id_list=[]
     
     #run the script
-    process_sample(id_sample, path_input,suffix, path_blacklist, kraken_db,mem, run_dir,nb_thread,get_Fasta,splash)
+    process_sample(id_sample, path_input, suffix, path_blacklist, kraken_db, mem, run_dir, nb_thread, get_Fasta, splash)
+#main initialisation
+if __name__ == "__main__":
+    main()
+    
