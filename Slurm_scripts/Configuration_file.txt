@@ -1,0 +1,86 @@
+#SINCERE-DATA configuration file
+##Global required parameters
+###Path to SINCERE_DATA scripts
+sincere_path="path_to_sincere_scripts"
+
+###Directory containing the reads (-i for step 1)
+reads_dir="path_to_trimmed_reads_folder"
+
+###Running directory for sincere data (-i for steps 2 and 4 ; -o for all steps)
+run_dir="path_to_sincere_working_directory_folder"
+
+###List of sample file name to use for the analysis (-i for splashome filter, step 3 and assembly filtering ; used for getting -d parameters for steps 1, 2 and 4)
+samples="path_to_sample_list.txt"
+
+###Kraken database directory (-k)
+krk_db="path_to_kraken_database"
+
+###Name to use for the run (-n)
+run_name="Sincere_run_name"
+
+##Global optional parameters
+###Kraken2 confidence score (-cs)
+confidence_score=0
+
+##Kraken2 memory running (-m)
+krk_mem=FALSE #Modify to TRUE if you wish to use this parameter
+
+###Blacklist file (-b)
+bl_file="path_to_blacklist_file.txt"
+
+###Number of threads to use (-t)
+nb_threads=1
+
+##Step-specific parameters
+###Splashome filter step specific parameters
+####Enable or disable this step
+splashome=TRUE #Modify to FALSE if you don't wish to run this step
+
+####Threshold anomaly for splashome filter step (-ta)
+threshold_anomaly=1
+
+###Step 2 specific parameter
+####Generate a fasta file for outliers (-f)
+fasta_outliers=TRUE #Modify to FALSE if you don't wish to use this parameter
+
+###Step 3 specific parameters
+####Email (required) (-e)
+email="email"
+
+####Sample threshold (-ts)
+threshold_sample=0.1
+
+####Outlier threshold (-to)
+threshold_outlier=0.2
+
+###Step 4 specific parameters
+####Path to contaminants file (-c)
+contaminants=${run_dir}/meta_analysis/contaminants_${run_name}.txt #Put 'None' if you don't wish to use it
+
+####Enable or disable bakta annotation (-a)
+annotation=TRUE #Modify to FALSE if you don't wish to use this parameter
+bakta_db="path_to_bakta_db" #Path to bakta database (-ba)
+
+####Enable or disable bakta annotation (-j)
+junk_analysis=TRUE #Modify to FALSE if you don't wish to use this parameter
+platon_db="path_to_platon_db" #Path to platon database (-p)
+
+###Assembly filtering step specific parameters
+####Enable or disable this step
+assembly_filtering=TRUE #Modify to FALSE if you don't wish to run this step
+
+####Completeness threshold (-co)
+completeness_threshold=50
+
+####Contamination threshold (-ct)
+contamination_threshold=10
+
+##Parameters for sbatch commands
+#Maximum number of jobs that will be run simultaneously
+max_sim_jobs=1
+
+#Memory to use for step1, 2 and 4 which will need more ressources
+big_mem=10G
+
+#Memory to use for Splashome finder, step 3 and Assembly filtering which will need less memory
+small_mem=5G 

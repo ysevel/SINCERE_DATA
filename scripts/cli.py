@@ -7,6 +7,7 @@ from . import splashome_filter
 from . import Sincere-data_outlier_predictor
 from . import Sincere-data_meta_analysis
 from . import Sincere-data_decontamination
+from . import Sincere-data_assembly_filtering
 
 
 COMMANDS = {
@@ -15,6 +16,7 @@ COMMANDS = {
     "outlier_predictor": Sincere-data_outlier_predictor.main,
     "meta_analysis": Sincere-data_meta_analysis.main,
     "decontamination": Sincere-data_decontamination.main,
+    "assembly_filter": Sincere-data_assembly_filtering.main
 }
 
 
@@ -27,7 +29,8 @@ def main():
             "  sincere-data splashome_finder [options]\n"
             "  sincere-data outlier_predictor [options]\n"
             "  sincere-data meta_analysis [options]\n"
-            "  sincere-data decontamination [options]"
+            "  sincere-data decontamination [options]\n"
+            " sincere-data assembly_filter [options]"
         )
         sys.exit(1)
 

@@ -8,7 +8,6 @@ from textwrap import dedent as twdd
 #from Bio import SeqIO
 import argparse
 import subprocess
-import logging
 
 #functions
 def handle_program_options():
@@ -21,26 +20,26 @@ def handle_program_options():
     parser = argparse.ArgumentParser(description=twdd(descr),
                            formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-i', '--input', required=True,
-                        help="path to index file of samples to process. \
-                          Needs to give for each sample its directory path \
-                          and names, comma separated")
+                        help="Path to the trimmed reads folder")
     parser.add_argument('-d', '--id', required=True,
-                        help="id for the sample, will be used to point to the correct files")
+                        help="ID for the sample, will be used to point to the correct files")
     parser.add_argument('-o', '--output', required=True,
                             help="Output path where directories will be built")
     parser.add_argument('-n', '--name', required=True,
                             help="Name of the run and main directory")
     parser.add_argument('-k', '--kraken_db', required=True,
-                        help="path to the kraken database folder")
+                        help="Path to the kraken database folder")
     parser.add_argument('-b', '--blacklist', required=False ,default=None,
-                        help="path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well!")
+                        help="Path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well!")
     parser.add_argument('-t', '--threads', type=int ,default=1,
                         help="Number of threads")
     parser.add_argument('-m', '--mem', action='store_true',
-                        help="allow kraken to run on memory (optionnal, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken databese into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example)")
+                        help="Allow kraken to run on memory (optionnal, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example). ")
+    parser.add_argument('-cs', '--confidence_score', required=False, default=0,
+                        help="Kraken2 confidence score. See https://github.com/DerrickWood/kraken2/wiki/Manual#confidence-scoring for more details.")
     return parser.parse_args()
 
-def remove_sample(id_sample,error):
+def remove_sample(id_sample, error):
     """ report the sample id of a missing sample and write the id and the corresponding error message to the missing file."""
     with open(missing_file, 'a') as missf:
         missf.write(id_sample + '\t' + error)
@@ -79,7 +78,7 @@ def check_reads(path_input, id_sample):
         print ("Invalid input path specified in the index file. Please check if the path truly exist.")
         sys.exit()
 
-def launch_kraken(R1_file, R2_file, id_sample,output,kraken_db, suffix, threads):
+def launch_kraken(R1_file, R2_file, id_sample,output,kraken_db, suffix, threads, confidence_score):
     """
     create the result directories and launch the krakern command on paired reads
     """
@@ -97,7 +96,7 @@ def launch_kraken(R1_file, R2_file, id_sample,output,kraken_db, suffix, threads)
         cmd_mem="" 
     else:
         cmd_mem="--memory-mapping" #allow to reduce memory usage if none specified, warning, kraken become painfully low, use smaller databases.
-    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem}"
+    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem} --confidence {confidence_score}"
     print("kraken will run on reads using :\n" + command_kr)
     log_kr=f"{sample_dir}{id_sample}_{suffix}_kraken2.log"
     with open(log_kr,'w')as log_k:
@@ -129,6 +128,7 @@ path_blacklist = arguments.blacklist
 kraken_db = arguments.kraken_db
 mem = arguments.mem
 nb_thread = arguments.threads
+confidence_score=arguments.confidence_score
 
 ### building run & sample directory
 run_dir=f"{output}/"
@@ -183,7 +183,7 @@ print(reads_R2)
 #analyse the trimmed reads
 print("Now running preliminary taxon classification on reads\n")
 trim_suffix=f"{suffix}_trim_reads"
-kr_trim_out,kr_trim_reports = launch_kraken(reads_R1, reads_R2, id_sample,f"{sample_dir}trimmed_reads",kraken_db,suffix,nb_thread)
+kr_trim_out,kr_trim_reports = launch_kraken(reads_R1, reads_R2, id_sample,f"{sample_dir}trimmed_reads",kraken_db,suffix,nb_thread,confidence_score)
 #check the blacklist and create a contaminants list to filter out with krakentools
 contaminants = []
 if path_blacklist !=None:
@@ -206,6 +206,6 @@ contaminants_str=' '.join(f"{str(e)}" for e in contaminants)
 print(f"taxon selected for filtering: {contaminants_str} from the blacklist \nNow running reads filtering\n") #checck on the blacklist
 filter_reads_R1, filter_reads_R2 = blacklist_filtering(reads_R1, reads_R2, id_sample, output_filter, kr_trim_out, filter_suffix, contaminants_str, kr_trim_reports) #filter out the contaminated reads
 
-kr_filter_out,kr_filter_reports = launch_kraken(filter_reads_R1, filter_reads_R2, id_sample,output_filter,kraken_db,filter_suffix,nb_thread) #launch kraken on the filtered reads in order to use the reports in the following steps of the workflow
+kr_filter_out,kr_filter_reports = launch_kraken(filter_reads_R1, filter_reads_R2, id_sample,output_filter,kraken_db,filter_suffix,nb_thread,confidence_score) #launch kraken on the filtered reads in order to use the reports in the following steps of the workflow
 print(f"script successfully ended check {filter_reads_R1} and {kr_filter_reports} now closing and waiting for main taxon meta analysis")
 print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : read filtering ends")
