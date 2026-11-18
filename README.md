@@ -34,7 +34,7 @@ After that, the read decontamination is performed in the fourth step of the work
 
 The final optional step of the workflow can filtered out low quality assembly. First, it will launch a global CheckM evaluation of all assemblies. Based on this evaluation, assemblies will be filtered out using two defined threshold for completeness and contamination. To be kept the assembly have to show a completeness higher (or equal) than the completeness threshold and a contamination lower (or equal) than the contamination threshold.
 
-![workflow_sincere-data-final](https://github.com/ysevel/SINCERE_DATA/tree/main/Image/Workflow.png)
+![workflow_sincere-data-final](https://github.com/ysevel/SINCERE_DATA/blob/main/Image/Workflow.png)
 
 ## Installation
 SINCERE-DATA doesn't need any installation. Scripts can be run as described in Usage section. However, dependencies need to be installed either in a conda environment or in your path (See list below). For KrakenTools, you only need to download the extract_kraken_reads.py script and put it in `SINCERE_DATA/scripts`. 
