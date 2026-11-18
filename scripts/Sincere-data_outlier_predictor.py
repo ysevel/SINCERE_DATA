@@ -13,16 +13,10 @@ from pathlib import Path
 from Bio import Entrez
 from textwrap import dedent as twdd
 import argparse
+import convert_krep as krep
 import subprocess
 import logging
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
-from multiprocessing import cpu_count, Manager, Lock
 
-# Global variables
-manager = Manager()
-current_missing_id_list = manager.list()
-missing_id_lock = Lock()
 
 #functions
 def handle_program_options():
@@ -35,50 +29,56 @@ def handle_program_options():
     parser = argparse.ArgumentParser(description=twdd(descr),
                            formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-i', '--input', required=True,
-                        help="path to index file of samples to process. \
-                          Needs to give for each sample its directory path \
-                          and names, comma separated.")
+                        help="Path to the SINCERE-DATA analysis folder used in the previous step(s).")
     parser.add_argument('-d', '--id', required=True,
-                        help="id for the sample, will be used to point to the correct files.")
+                        help="ID for the sample, will be used to point to the correct files.")
     parser.add_argument('-o', '--output', required=True,
                         help="Output path where directories will be built.")
     parser.add_argument('-t', '--threads', type=int ,default=1,
                         help="Number of threads")
     parser.add_argument('-m', '--mem', action='store_true',
-                        help="Allow kraken to run on memory (optional, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken databese into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example).")
+                        help="Allow kraken to run on memory (optionnal, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example).")
     parser.add_argument('-n', '--name', required=True,
                         help="Name of the run and main directory.")
     parser.add_argument('-f', '--fasta', action='store_true',
-                        help="add this argument if you want to generate a file of fasta sequences for the outliers found at this step.")
+                        help="Add this argument if you want to generate a file of fasta sequences for the outliers found at this step.")
     parser.add_argument('-k', '--kraken_db', required=True,
                         help="Path to the kraken database folder.")
     parser.add_argument('-b', '--blacklist', required=False ,default=None,
                         help="Path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well!")
     parser.add_argument('--splash', action='store_true',
-                        help='Use this option if you performed the sphlashome analysis functionnality of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value.')
+                        help='Use this option if you performed the step 2 of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value, run at your own risks.')
+    parser.add_argument('-cs', '--confidence_score', required=False, default=0,
+                        help="Kraken2 confidence score. See https://github.com/DerrickWood/kraken2/wiki/Manual#confidence-scoring for more details.")
     return parser.parse_args()
 
 
-def remove_sample(id_sample, error, logger, output_missing_file):
+def remove_sample(id_sample, error, logger, missing_file, missing_id):
     """ report the sample id of a missing sample and write the id and the corresponding error message to the missing file."""
-    with missing_id_lock:
-        current_missing_id_list.append(id_sample)
-        with open(output_missing_file, 'a') as missf:
-            missf.write(id_sample + '\t' + error + '\n')
+    with open(missing_file, 'a') as missf:
+        missf.write(id_sample + '\t' + error + '\n')
+        missing_id.append(id_sample)
     logger.error(f"Sample {id_sample} removed: {error}")
 
 
-def check_sample(id_sample,list_missing_id,logger):
+def check_sample(id_sample,missing_file,logger):
+    try: 
+        with open(missing_file,'r') as miss_f:
+            miss_lines = miss_f.readlines()
+            for line in miss_lines:
+                line=line.strip()
+                list_missing_id.append(line)
+    except:
+        logger.info("there is not missing file yet, the analysis will run on the complete dataset")
+        return
     if id_sample in list_missing_id:
         logger.warning(f"{id_sample} has been found missing in previous steps and will been ignored, exiting.\n")
-        return False
+        sys.exit()
     else:
         logger.info(f"processing on preliminary assembly on {id_sample}\n")
-    
-    return True
 
 
-def check_reads(path_input, id_sample, logger, output_missing_file):
+def check_reads(path_input, id_sample, logger, missing_file, missing_id):
     """ from an input path, a sample id, the number of paired reads (either 1 or 2), test the path then check if read files are present 
         and returns the file name if validated. If not, False is returned to cut the decontamination workflow for the sample. """
     message = "" #note: it is best that the sample id is separated from any suffix in the reads by '_', otherwise finding the right read can be tricky.
@@ -91,11 +91,11 @@ def check_reads(path_input, id_sample, logger, output_missing_file):
         logger.info(f"Files in input path: {glob.glob(path_input)}")
         if len(R1_list) < 1:
             message = f"Error : R1 reads file not found for {id_sample}"
-            remove_sample(id_sample, message, logger, output_missing_file)
+            remove_sample(id_sample, message, logger, missing_file, missing_id)
             return False, False
         elif len(R2_list) < 1:
             message = f"Error : R2 reads file not found for {id_sample}"
-            remove_sample(id_sample, message, logger, output_missing_file)
+            remove_sample(id_sample, message, logger, missing_file, missing_id)
             return False, False
         else:
             R1_file=R1_list[0]
@@ -107,7 +107,7 @@ def check_reads(path_input, id_sample, logger, output_missing_file):
         sys.exit(1)
 
 
-def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, threads, mem, logger, sample_dir):
+def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, threads, mem, logger, sample_dir, confidence_score):
     """
     create the result directories and launch the kraken command on paired reads
     """
@@ -122,7 +122,7 @@ def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, thread
     kr_out=f"{output}/kraken_results/{id_sample}_{suffix}_kr_results.txt"
     kr_rep=f"{output}/kraken_reports/{id_sample}_{suffix}_kr_reports.txt"
     cmd_mem = "--memory-mapping" if not mem else ""
-    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem}"
+    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem} --confidence {confidence_score}"
     logger.info(f"Kraken command for reads: {command_kr}")
     log_kr=f"{sample_dir}{id_sample}_{suffix}_kraken2.log"
     with open(log_kr,'w') as log_k:
@@ -146,16 +146,16 @@ def blacklist_filtering(R1_file, R2_file, id_sample, output, kr_filter_out, suff
     return f"{output_dir}/{id_sample}_{suffix}_R1.fastq", f"{output_dir}/{id_sample}_{suffix}_R2.fastq"
 
 
-def genome_assembly(R1_file, R2_file, id_sample, suffix, assembly_dir, threads, logger, sample_out_dir):
+def genome_assembly(R1_file, R2_file, id_sample, suffix, output, threads, logger, sample_dir):
     """
     perform the assembly on the decontaminated reads, is supposed to be run with fixed parameters, also filter out contigs shorter than 500bp.
     """
+    assembly_dir=f"{output}/assembly"
     try:
         os.makedirs(assembly_dir) #create a specific assembly dir, it is intended, at this step to be in the decontamination folder.
     except:
         print(f"Warning : sample directory {assembly_dir} already existing. Overwriting...")
-    
-    log_assembly=f"{sample_out_dir}{id_sample}_{suffix}_assembly.log"
+    log_assembly=f"{sample_dir}{id_sample}_{suffix}_assembly.log"
     cmd_spades=f"spades.py --sc --careful -t {threads} -1 {R1_file} -2 {R2_file} -o {assembly_dir}/{id_sample}_{suffix}_spades" #run spade in a specific temporary folder that is supposed to be erased.
     logger.info(f"running spades with: {cmd_spades}")
     cmd_reformat=f"reformat.sh minlength=500 in={assembly_dir}/{id_sample}_{suffix}_spades/contigs.fasta  out={assembly_dir}/{id_sample}_{suffix}_prelim_assembly.fasta overwrite=true" #the trimmed assembly is saved directly in the assembly folder, outside of spades folder
@@ -168,14 +168,15 @@ def genome_assembly(R1_file, R2_file, id_sample, suffix, assembly_dir, threads, 
     return f"{assembly_dir}/{id_sample}_{suffix}_prelim_assembly.fasta"
 
 
-def genome_alignement(R1_file, R2_file, assembly,id_sample, suffix, align_dir, threads,logger, sample_out_dir):
+def genome_alignement(R1_file, R2_file, assembly,id_sample, suffix, output, threads,logger, sample_dir):
     """This function perform reads alignement on the genome assembly, the final output is a bed file that can be used to determine the outliers regions"""
+    align_dir=f"{output}/align_reads"
     try:
         os.makedirs(align_dir)
     except:
         f"Warning : sample directory {align_dir} already existing. Overwriting..."
-    log_align=f"{sample_out_dir}{id_sample}_{suffix}_alignement.log"
-    index=f"{sample_out_dir}/decontamination/assembly/{id_sample}_{suffix}_prelim_assembly_index"
+    log_align=f"{sample_dir}{id_sample}_{suffix}_alignement.log"
+    index=f"{output}/assembly/{id_sample}_{suffix}_prelim_assembly_index"
     cmd_index=f"bowtie2-build -f {assembly} {index}"
     sam_file=f"{align_dir}/{id_sample}_{suffix}.sam"
     cmd_bowtie=f"bowtie2 --threads {threads} -1 {R1_file} -2 {R2_file} -x {index} --sensitive -S {sam_file}"
@@ -198,7 +199,7 @@ def genome_alignement(R1_file, R2_file, assembly,id_sample, suffix, align_dir, t
         os.remove(bam_file)
         subprocess.run(cmd_bai, stdout=log_al,stderr=subprocess.STDOUT, shell=True)
         subprocess.run(cmd_bed, stdout=log_al,stderr=subprocess.STDOUT, shell=True)
-        logging.info(f"the bedgraph file is available in: {bedgraph_file}")
+    logging.info(f"the bedgraph file is available in: {bedgraph_file}")
     return bedgraph_file #the bedgraph is the final file, the bam sorted file are used down the line as well
 
 
@@ -208,7 +209,7 @@ def get_avg(list):
 #write_bed_file
 
 
-def outlier_predictor(name_bedfile, name_bedgraph, threshold, align_d, outlier_d, sample_id, out_suffix, kraken_db, logger, sample_dir, nb_threads, mem):
+def outlier_predictor(name_bedfile, name_bedgraph, threshold, align_d, outlier_d, sample_id, out_suffix, kraken_db, logger, sample_dir, nb_threads, mem, confidence_score):
     """
     Input : 
         name_bedfile : String, name of the file to generate
@@ -252,7 +253,7 @@ def outlier_predictor(name_bedfile, name_bedgraph, threshold, align_d, outlier_d
                         else :                          # else (i.e it's really a new exceeding region)
                             if (int(last_end) - int(last_start) > min_length):    # ... if the outlier is long enough...
                                 outlier_region=f"{the_contig}:{start}-{end}"
-                                process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem)
+                                process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem, confidence_score)
                                 nb_outlier+=1                                 # ...the previous one is written...
                                 bedfile.write(f"{last_contig}\t{last_start}\t{last_end}\tregion_{nb_outlier}\n")
                             waiting = False                     # ...there's no longer a zone waiting for check
@@ -272,7 +273,7 @@ def outlier_predictor(name_bedfile, name_bedgraph, threshold, align_d, outlier_d
                     passed = False                                          # ...region ended,...
                     if (int(end) - int(start) > min_length):    # ... if the outlier is long enough...
                         outlier_region=f"{the_contig}:{start}-{end}"
-                        process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem)
+                        process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem, confidence_score)
                         nb_outlier+=1                                             # ...counted as a new one...
                         bedfile.write(f"{the_contig}\t{start}\t{end}\tregion_{nb_outlier}\n") # ...and added to the file
                 if (int(line[3])<=threshold and passed):  # if cover ends exceeding the threshold...
@@ -286,13 +287,13 @@ def outlier_predictor(name_bedfile, name_bedgraph, threshold, align_d, outlier_d
             if waiting :    
                 if (int(last_end) - int(last_start) > min_length):    # ... if the outlier is long enough...    
                     outlier_region=f"{the_contig}:{last_start}-{last_end}"
-                    process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem)
+                    process_outliers(align_dir, outlier_dir, sample_id, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_threads, mem, confidence_score)
                     nb_outlier += 1                                                                   ##
                     bedfile.write(f"{last_contig}\t{last_start}\t{last_end}\tregion_{nb_outlier}\n")   ## if last outlier is saved in memory, print it
 
 
 #process_outliers
-def process_outliers(align_dir, outlier_dir, id_sample, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_thread, mem):
+def process_outliers(align_dir, outlier_dir, id_sample, suffix, outlier_region, nb_outlier, kraken_db, logger, sample_dir, nb_thread, mem, confidence_score):
     try:
         os.makedirs(f"{outlier_dir}/outlier_fastq")
     except:
@@ -313,7 +314,7 @@ def process_outliers(align_dir, outlier_dir, id_sample, suffix, outlier_region, 
     #print(cmd_samtools)
     cmd_sort=f"samtools sort -n -o {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_sorted.bam {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}.bam"
     cmd_bamtofastq=f"bedtools bamtofastq -i {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_sorted.bam -fq {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R1.fastq -fq2 {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R2.fastq"
-    cmd_kr_outlier=f"kraken2 --threads {nb_thread} --db {kraken_db} --paired {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R1.fastq {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R2.fastq -output {kr_out} --use-names --report {kr_rep} {cmd_mem}"
+    cmd_kr_outlier=f"kraken2 --threads {nb_thread} --db {kraken_db} --paired {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R1.fastq {outlier_dir}/outlier_fastq/{id_sample}_{suffix}_outlier_{nb_outlier}_R2.fastq -output {kr_out} --use-names --report {kr_rep} {cmd_mem} --confidence {confidence_score}"
     with open(log_outlier,'w') as log_outl:
         subprocess.run(cmd_samtools, stdout=log_outl,stderr=subprocess.STDOUT, shell=True)
         subprocess.run(cmd_sort, stdout=log_outl,stderr=subprocess.STDOUT, shell=True)
@@ -346,9 +347,9 @@ def get_visu_cov(cover, threshold, fig_name, id_file):
         return False
 
 
-#fonction thresold
-def threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sample_dir, kraken_db, get_Fasta, nb_threads, mem, output_missing_file):
-    """ This fonction calculate the z-score thresold on coverage in order to find outliers regions in the preliminary assembly. The mean coverage for the whole assembled is computed and Z-score calculaed, outlier regions are determined as region with a coverage equal or supperior to 2 std over the mean coverage (mean + 2*std)"""
+#fonction threshold
+def threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sample_dir, kraken_db, get_Fasta, nb_threads, mem, output_missing_file, confidence_score):
+    """ This fonction calculate the z-score threshold on coverage in order to find outliers regions in the preliminary assembly. The mean coverage for the whole assembled is computed and Z-score calculaed, outlier regions are determined as region with a coverage equal or supperior to 2 std over the mean coverage (mean + 2*std)"""
     outliers_dir=f"{decontam_dir}/outliers"
     df_summary = pd.DataFrame(columns=['file', 'mean', 'max', 'standard error', 'length', 'threshold'])
     with open(f"{sample_dir}{id_sample}_{suffix}_outliers.log", "a") as log_t :
@@ -415,12 +416,12 @@ def threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sam
         ### writing bedfile
         outlier_bedfile = f"{outliers_dir}/{id_sample}_{suffix}_outliers.bed"
         sample_bedgraph = f"{align_dir}/{id_sample}_{suffix}_bedgraph.tsv"
-        outlier_predictor(outlier_bedfile, sample_bedgraph, threshold, align_dir, outliers_dir, id_sample, suffix,kraken_db, logger, sample_dir, nb_threads, mem)
+        outlier_predictor(outlier_bedfile, sample_bedgraph, threshold, align_dir, outliers_dir, id_sample, suffix,kraken_db, logger, sample_dir, nb_threads, mem, confidence_score)
 
         ## writing and displaying results
         if get_Fasta == True: ### generates fasta files [option] 
             fasta_file=f"{decontam_dir}/assembly/{id_sample}_{suffix}_peaks.fasta"
-            subprocess.run(f"bedtools getfasta -fi {decontam_dir}/assembly/{id_sample}_{suffix}_prelim_assembly.fasta -bed {outlier_bedfile} -name > {fasta_file}",stdout=log_t,stderr=subprocess.STDOUT, shell=True)
+            os.system(f"bedtools getfasta -fi {decontam_dir}/assembly/{id_sample}_{suffix}_prelim_assembly.fasta -bed {outlier_bedfile} -name > {fasta_file}")
             message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : {outlier_bedfile} and {fasta_file} generated\n"
         else :
             message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : {outlier_bedfile} generated\n"
@@ -428,21 +429,17 @@ def threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sam
         logger.info(f"{outlier_bedfile} generated")
         return threshold
 
-def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, get_Fasta, nb_threads, mem, previous_missing_id_list, output_missing_file):
+
+
+def process_sample(id_sample, path_input, suffix, path_blacklist, kraken_db, mem, run_dir,nb_threads,get_Fasta,splash,confidence_score):
     ###check missing sample
-    sample_dir=f"{path_input}/{id_sample}/"
-    sample_out_dir=f"{run_dir}/{id_sample}/"
-    taxon_dir= f"{path_input}/meta_analysis/"
-    filter_dir=f"{sample_dir}/filtered_reads"
-    decontam_dir=f"{sample_out_dir}/decontamination"
-    
-    try :
-        os.makedirs(sample_out_dir)
-    except :
-        print(f"Warning : sample directory {run_dir} already exist. Overwriting...", flush=True)
-    os.makedirs(os.path.join(sample_out_dir, "decontamination"), exist_ok=True)
-    
-    log_file = f"{sample_out_dir}outliers_prediction_{id_sample}_{suffix}.log"
+    missing_file=f"{run_dir}missing_id.txt"
+    sample_dir=f"{run_dir}{id_sample}/"
+    taxon_dir= f"{run_dir}meta_analysis/"
+    filter_dir=f"{sample_dir}filtered_reads"
+    decontam_dir=f"{sample_dir}decontamination"
+    #implement the log for step3:
+    log_file = f"{sample_dir}outliers_prediction_{id_sample}_{suffix}.log"
     print(f"All prints will now be saved in {log_file} file.")
     
     if os.path.exists(log_file):    # generates a new file
@@ -457,30 +454,30 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, get_Fasta,
     logger.addHandler(file_handler)
     
     logger.info(f"Processing sample: {id_sample}")
-    if not check_sample(id_sample, previous_missing_id_list, logger):
-        return
-    
+    missing_file = f"{run_dir}missing_id.txt"
+    check_sample(id_sample, missing_file, logger)
+    #folder verification
     if os.path.exists(sample_dir):
         logger.info(f"Running the outlier detection for {id_sample} in {sample_dir} directory")
         logger.info(f"Successfully found {id_sample}, proceding to read analysis.")
     else:
-        if id_sample in current_missing_id_list:
+        if id_sample in missing_id:
             logger.warning("the sample was removed from previous step of the pipeline, ignoring the sample")
+            sys.exits()
         else:
             logger.error("ERROR, the sample directory do not exist, please check the path")
-        
-        return
+            sys.exit()
 
     #reads to use
-    reads_dir=f"{filter_dir}/reads"
-    filter_reads_R1, filter_reads_R2 = check_reads(reads_dir, id_sample, logger, output_missing_file)
-    if not filter_reads_R1 or not filter_reads_R2:
+    reads_dir=f"{sample_dir}filtered_reads/reads"
+    reads_R1, reads_R2 = check_reads(reads_dir, id_sample, logger, missing_file, missing_id)
+    if not reads_R1 or not reads_R2:
         return
     #variables for kraken2
     filter_suffix=f"{suffix}_filter_reads"
     kr_filter_out=f"{filter_dir}/kraken_results/{id_sample}_{filter_suffix}_kr_results.txt"
     kr_filter_rep=f"{filter_dir}/kraken_reports/{id_sample}_{filter_suffix}_kr_reports.txt"
-        #second filtering stap if given the splash option, otherwise will ignore this step and copy the filtered reads from the first step into the decontam_dir    
+    #second filtering stap if given the splash option, otherwise will ignore this step and copy the filtered reads from the first step into the decontam_dir
     if splash==True: #if the splash option is given a second round of reads filtering is run on the dataset, otherwise 
         contaminants = []
         if path_blacklist !=None:
@@ -500,7 +497,7 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, get_Fasta,
         logger.info(f"taxon selected for filtering: {contaminants_str} from the blacklist \nNow running reads filtering\n")
         filter_reads_R1, filter_reads_R2 = blacklist_filtering(reads_R1, reads_R2, id_sample, decontam_dir, kr_filter_out, filter_suffix, contaminants_str, kr_filter_rep,logger, sample_dir)
         #run kraken on the newly filtered reads including the splashome taxon.
-        kr_filter_out,kr_filter_reports = launch_kraken(filter_reads_R1, filter_reads_R2, id_sample,decontam_dir,kraken_db,filter_suffix,nb_thread,logger, sample_dir)
+        kr_filter_out,kr_filter_reports = launch_kraken(filter_reads_R1, filter_reads_R2, id_sample,decontam_dir,kraken_db,filter_suffix,nb_thread, mem, logger, sample_dir,confidence_score)
     else: #if no --splash option is provided, just copy the already existing filtered reads into the decontam_dir and copy kraken reports and results in order to have them in the correct folder.
         filter_reads_R1=reads_R1
         filter_reads_R2=reads_R2
@@ -526,17 +523,25 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, get_Fasta,
     #genome assembly
     assembly_dir=f"{decontam_dir}/assembly"
     align_dir=f"{decontam_dir}/align_reads"
-    prelim_assembly=genome_assembly(filter_reads_R1, filter_reads_R2, id_sample, suffix, assembly_dir, nb_threads,logger, sample_out_dir)
+    logger.info(f"running preliminary assembly for {id_sample}")
+    prelim_assembly=genome_assembly(filter_reads_R1, filter_reads_R2, id_sample, suffix, decontam_dir, nb_thread,logger, sample_dir)
+    #command for debug, allow to bybass time consuming steps once they have run for the first time
+    #filter_reads_R1=f"{output_dir}/{id_sample}_{filter_suffix}_R1.fastq"
+    #filter_reads_R2=f"{output_dir}/{id_sample}_{filter_suffix}_R2.fastq"
+    #prelim_assembly=f"{assembly_dir}/{id_sample}_{suffix}_prelim_assembly.fasta"
 
     #reads alignements
-    genome_bed=genome_alignement(filter_reads_R1, filter_reads_R2,prelim_assembly ,id_sample, suffix, align_dir, nb_threads,logger, sample_out_dir)
-    threshold=threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sample_out_dir, kraken_db, get_Fasta, nb_threads, mem, output_missing_file)
-    logger.info(f"the thresold for {id_sample} is {threshold}")
+    logger.info(f"running reads alignement for {id_sample}")
+    genome_bed=genome_alignement(filter_reads_R1, filter_reads_R2,prelim_assembly ,id_sample, suffix, decontam_dir, nb_thread,logger, sample_dir)
+    logger.info(f"calculating threshold for {id_sample}")
+    threshold=threshold_calculator (id_sample, suffix, align_dir, decontam_dir,logger, sample_dir, kraken_db, get_Fasta, nb_threads, mem, missing_file, confidence_score)
+    logger.info(f"the threshold for {id_sample} is {threshold}")
     logger.info(f"script end for sample {id_sample}") #print the end time of the script, in order to have easy access to the total time the script ran.
 
-def main():
-    '''parse the variable and launch process sample'''
+#main and variable initialisation
+if __name__ == "__main__":
     arguments = handle_program_options()
+    #parse the argument, most of them would correspond to previous step of this pipeline.
     path_input = arguments.input
     id_sample = arguments.id
     output = arguments.output           
@@ -547,36 +552,19 @@ def main():
     nb_thread = arguments.threads
     get_Fasta = arguments.fasta
     splash=arguments.splash
-        
+    confidence_score=arguments.confidence_score
+
     run_dir=f"{output}/"
-    taxon_dir= f"{path_input}/meta_analysis/"
-    
-    if not os.path.exists(path_input):
-        print(f"The directory {path_input} does not exist, it is intended to be created with the first step of this pipeline. Please check this before running this Step again.")
-        sys.exit(1)
-    
-    print("Now running preliminary assembly and outlier prediction, this might take a while\n")
-    
+    taxon_dir= f"{run_dir}meta_analysis/"
+    if os.path.exists(run_dir):
+        print("Now running preliminary assembly and outlier prediction, this might take a while\n")
+
+    else:
+        print(f"the directory {run_dir} does not exist, it is intended to be created with the script Sincere-data_reads_filtering.py as it is the first step of this pipeline, please check your path or run Sincere-data_reads_filtering.py and, optionnally, splashome_filter.py on the samples first before running this script again.")
+        sys.exit()
     if os.path.exists(taxon_dir):
         print(f"sucessfully found the taxon directory: {taxon_dir}\n")
     else:
-        print(f"WARNING: the directory {taxon_dir} does not exist, it is likely that Step 1 was run with the abnormal taxon threshold set to 1 (no filtering). You are advised to run Step 1 again with a smaller value for this parameter.")
-    
-    input_missing_file=f"{path_input}/missing_id.txt"
-    output_missing_file=f"{output}/missing_id.txt"
-    try:
-        with open(input_missing_file, 'r') as miss_f:
-            previous_missing_id_list = [line.strip() for line in miss_f]
-            with open(output_missing_file, 'w') as out_miss_f:
-                for id_s in previous_missing_id_list:
-                    out_miss_f.write(id_s + '\n')
-    except:
-        print("there is not missing file yet, the analysis will run on the complete dataset")
-        previous_missing_id_list=[]
-    
-    #run the script
-    process_sample(id_sample, path_input, suffix, path_blacklist, kraken_db, mem, run_dir, nb_thread, get_Fasta, splash)
-#main initialisation
-if __name__ == "__main__":
-    main()
-    
+        print(f"WARNING: the directory {taxon_dir} does not exist, it is likely that the script splashome_filter.py have not been run on the samples prior to running this Script. As the splahome_filter.py is an important part of the pipeline you should consider running it before running this script again.")
+    missing_id = []
+    process_sample(id_sample, path_input,suffix, path_blacklist, kraken_db,mem, run_dir,nb_thread,get_Fasta,splash,confidence_score)

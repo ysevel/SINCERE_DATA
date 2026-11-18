@@ -10,9 +10,6 @@ import shutil
 import argparse
 import subprocess
 import logging
-#from concurrent.futures import ProcessPoolExecutor
-#from functools import partial
-#from multiprocessing import cpu_count, Manager, Lock
 
 
 #functions
@@ -28,25 +25,31 @@ def handle_program_options():
     parser = argparse.ArgumentParser(description=twdd(descr),
                            formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-i', '--input', required=True,
-                        help="path to index file of samples to process. \
-                          Needs to give for each sample its directory path \
-                          and names, comma separated")
+                        help="Path to the SINCERE-DATA analysis folder used in the previous steps")
     parser.add_argument('-d', '--id', required=True,
-                        help="id for the sample, will be used to point to the correct files")
+                        help="ID for the sample, will be used to point to the correct files")
     parser.add_argument('-o', '--output', required=True,
                         help="Output path where directories will be built")
-    parser.add_argument('-t', '--threads', type=int ,default=8,
+    parser.add_argument('-t', '--threads', type=int ,default=1,
                         help="Number of threads")
     parser.add_argument('-m', '--mem', action='store_true',
-                        help="Allow kraken to run on memory (optionnal, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken databese into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example).")
+                        help="Allow kraken to run on memory (optionnal, otherwise will run kraken2 with the --memory-mapping option that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example).")
     parser.add_argument('-n', '--name', required=True,
-                        help="suffix given to every output file for this run")
+                        help="Suffix given to every output file for this run")
     parser.add_argument('-k', '--kraken_db', required=True,
-                        help="path to the kraken database folder")
-    parser.add_argument('-c', '--contaminants', required=False ,default=None,
-                        help="Path to a text file containing the taxon that should be systematically removed from the dataset (one taxid per line). Carefull it will eliminate all the children taxa as well! This file would ideally be generated from the previous steps of this workflow, but it can also be a 'blacklist' file with taxa the user want to exclude.")
-    parser.add_argument('-j', '--keep_junk_contigs' ,action='store_true',
-                        help="if the option is selected the contigs discarded by the assembly cleaning will be stored and analyzed for possible mobiles elements")
+                        help="Path to the kraken database folder")
+    parser.add_argument('-c', '--contaminants', required=False, default=None,
+                        help="Path to a text file containing the tax ID of taxa that should be systematically removed from the dataset (one tax ID per line). Careful it will eliminate all the children taxa as well! This file would ideally be generated from the previous steps of this workflow, but it can also be a 'blacklist' file with taxa the user want to exclude.")
+    parser.add_argument('-j', '--keep_junk_contigs', action='store_true',
+                        help="If this option is selected the contigs discarded by the assembly cleaning will be stored and analyzed for possible mobile elements.")
+    parser.add_argument('-a', '--annotation', action='store_true',
+                        help="If this option is selected the annotation of the assembly will be performed with bakta.")
+    parser.add_argument('-ba', '--bakta_db', required=False,
+                        help="The path to bakta database for genome annotation. Required and only needed if '--annotation' option is enabled.")
+    parser.add_argument('-p', '--platon_db', required=False, 
+                        help="The path to platon database for plasmid identification. Required and only needed if '--keep_junk_contigs' option is enabled.")
+    parser.add_argument('-cs', '--confidence_score', required=False, default=0,
+                        help="Kraken2 confidence score. See https://github.com/DerrickWood/kraken2/wiki/Manual#confidence-scoring for more details.")
     return parser.parse_args()
 
 def remove_sample(id_sample, message, logger, output_missing_file):
@@ -94,7 +97,7 @@ def check_reads(path_input, id_sample, logger, output_missing_file):
         sys.exit(1)
 
 
-def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, threads, mem, logger, sample_dir):
+def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, threads, mem, logger, sample_dir, confidence_score):
     """
     create the result directories and launch the kraken command on paired reads
     """
@@ -109,7 +112,7 @@ def launch_kraken(R1_file, R2_file, id_sample, output, kraken_db, suffix, thread
     kr_out=f"{output}/kraken_results/{id_sample}_{suffix}_kr_results.txt"
     kr_rep=f"{output}/kraken_reports/{id_sample}_{suffix}_kr_reports.txt"
     cmd_mem = "--memory-mapping" if not mem else ""
-    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem}"
+    command_kr=f"kraken2 --threads {threads} --db {kraken_db} --paired {R1_file} {R2_file} -output {kr_out} --use-names --report {kr_rep} {cmd_mem} --confidence {confidence_score}"
     logger.info(f"Kraken command for reads: {command_kr}")
     log_kr=f"{sample_dir}{id_sample}_{suffix}_kraken2.log"
     with open(log_kr,'w') as log_k:
@@ -130,6 +133,7 @@ def blacklist_filtering(R1_file, R2_file, id_sample, output, kr_filter_out, suff
     log_filter=f"{sample_dir}{id_sample}_{suffix}_filter_reads.log"
     with open(log_filter,'w') as log_f:
         subprocess.run(filter_contam, stdout=log_f, stderr=subprocess.STDOUT, shell=True)
+    os.remove(log_filter)
     return f"{output_dir}/{id_sample}_{suffix}_R1.fastq", f"{output_dir}/{id_sample}_{suffix}_R2.fastq"
 
 
@@ -154,12 +158,15 @@ def genome_assembly(R1_file, R2_file, id_sample, suffix, assembly_dir, threads, 
     logger.info(f"The preliminary assembly can be found in : {assembly_dir}/{id_sample}_{suffix}_prelim_assembly.fasta")
     return f"{assembly_dir}/{id_sample}_{suffix}_raw_assembly.fasta"
 
-def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, contaminants, id_sample, suffix, threads, logger, sample_out_dir, mem, sample_dir):
+def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, contaminants, id_sample, suffix, threads, logger, sample_out_dir, mem, sample_dir, bakta_db, kraken_db, confidence_score, annotation):
     """perform taxonomic classification on contigs and decontamination based on the the contaminants list defined at the previous stage of the pipeline, intended to be optionnal, it will be implemented later on."""
     #specific variables
     final_dir=f"{sample_out_dir}final_assembly"
     cleaned_dir=f"{sample_out_dir}cleaned_assembly" #create the clean directory which will contain the final output of each sample.
-    os.makedirs(cleaned_dir, exist_ok=True)
+    try:
+        os.makedirs(cleaned_dir)
+    except:
+        f"Warning : sample directory {cleaned_dir} already existing. Overwriting..."
     log_clean=f"{sample_dir}{id_sample}_{suffix}_contigs_clean.log"
     kr_p_rep=f"{final_dir}/kraken_raw_assembly_reports"
     try:
@@ -172,7 +179,7 @@ def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, conta
     except:
         f"Warning : sample directory {kr_p_out} already existing. Overwriting..."
     cmd_mem = "--memory-mapping" if not mem else ""
-    cmd_kraken=f"kraken2 --threads {threads} --db {kraken_db} {final_assembly} -output {kr_p_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_p_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem}"
+    cmd_kraken=f"kraken2 --threads {threads} --db {kraken_db} {final_assembly} -output {kr_p_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_p_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem} --confidence {confidence_score}"
     cleaned_assembly=f"{cleaned_dir}/{id_sample}_{suffix}_cleaned_assembly.fasta"
     cmd_krtools=f"python extract_kraken_reads.py -s {final_assembly} -k {kr_p_out}/{id_sample}_{suffix}_kr_results.txt -o {cleaned_assembly} -t {contaminants} --include-children --exclude --report {kr_p_rep}/{id_sample}_{suffix}_kr_reports.txt"
     with open(log_clean,'w') as log_c:
@@ -189,13 +196,25 @@ def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, conta
             os.makedirs(kr_c_out)
         except:
             print(f"Warning : sample directory {kr_c_out} already existing. Overwriting...")
-        cmd_kr_clean=f"kraken2 --threads {threads} --db {kraken_db} {cleaned_assembly} -output {kr_c_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_c_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem}"
+        cmd_kr_clean=f"kraken2 --threads {threads} --db {kraken_db} {cleaned_assembly} -output {kr_c_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_c_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem} --confidence {confidence_score}"
         subprocess.run(cmd_kr_clean, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
         cmd_quast=f"quast -t {threads} --pe1 {decontam_reads_R1} --pe2 {decontam_reads_R2} -o {cleaned_dir}/quast/{id_sample}_cleaned_assembly {cleaned_assembly}"
         subprocess.run(cmd_quast, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
+        annot_folder=f"{cleaned_dir}/annotations"
+        if annotation:
+            try:
+                os.makedirs(annot_folder)
+            except:
+                print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
+        cmd_annot=f"bakta -t {threads} --db {bakta_db} --output {annot_folder} -p {id_sample}_{suffix} -f --compliant {cleaned_assembly}"
+        if annotation:
+            subprocess.run(cmd_annot, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
+        else:
+            print(f"Bakta databases argument wasn't given, skipping bakta annotations.")
     return cleaned_assembly
-#variable initiation
-def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, cleaned_assembly, contaminants, id_sample, suffix, threads, logger, sample_out_dir, mem, sample_dir):
+
+
+def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, cleaned_assembly, contaminants, id_sample, suffix, threads, logger, sample_out_dir, mem, sample_dir, bakta_db, platon_db, kraken_db, confidence_score, annotation):
     """extract the junk contigs for analysis"""
     final_dir=f"{sample_out_dir}final_assembly"
     junk_dir=f"{sample_out_dir}junk_contigs" #create the junk directory which will contain the final output of each sample.
@@ -208,16 +227,16 @@ def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, c
         f"Warning : sample directory {junk_dir} already existing. Overwriting..."
     log_junk=f"{sample_dir}{id_sample}_{suffix}_discarded_contigs_analysis.log"
     junk_contigs=f"{junk_dir}/{id_sample}_{suffix}_junk_contigs.fasta"
-    cmd_junk_extract=cmd_krtools=f"python extract_kraken_reads.py -s {final_assembly} -k {kr_p_out}/{id_sample}_{suffix}_kr_results.txt -o {junk_contigs} -t {contaminants} --include-children --report {kr_p_rep}/{id_sample}_{suffix}_kr_reports.txt"
-    cmd_plasmid=f"platon --db /projects/ecogeno/DEV/analysis/platon_db/db --output {junk_dir}/mobile_elements/{id_sample}_plasmid --verbose --threads 8 {junk_contigs}"
+    cmd_junk_extract=f"python extract_kraken_reads.py -s {final_assembly} -k {kr_p_out}/{id_sample}_{suffix}_kr_results.txt -o {junk_contigs} -t {contaminants} --include-children --report {kr_p_rep}/{id_sample}_{suffix}_kr_reports.txt"
+    cmd_plasmid=f"platon --db {platon_db} --output {junk_dir}/mobile_elements/{id_sample}_plasmid --verbose --threads 8 {junk_contigs}"
     cmd_cat=f"cat {junk_dir}/mobile_elements/{id_sample}_plasmid/{id_sample}_{suffix}_junk_contigs.plasmid.fasta >> {cleaned_assembly}"
     cmd_quast=f"quast -t {threads} --pe1 {decontam_reads_R1} --pe2 {decontam_reads_R2} -o {junk_dir}/quast/{id_sample}_junk_contigs {junk_contigs}"
     with open(log_junk,'w') as log_j:
         logger.info(f"running junk contig extraction... krakentools command: {cmd_junk_extract}")
         subprocess.run(cmd_junk_extract, stdout=log_j,stderr=subprocess.STDOUT, shell=True)
-        logger.info(f"running  quast on discraded contigs: {cmd_quast}")
+        logger.info(f"running  quast on discarded contigs: {cmd_quast}")
         subprocess.run(cmd_quast, stdout=log_j,stderr=subprocess.STDOUT, shell=True)
-        logger.info(f"running plaston on discarded contigs: {cmd_plasmid}")
+        logger.info(f"running platon on discarded contigs: {cmd_plasmid}")
         subprocess.run(cmd_plasmid, stdout=log_j,stderr=subprocess.STDOUT, shell=True)
         logger.info("Merging plasmid related contigs with the assembly.")
         subprocess.run(cmd_cat, stdout=log_j,stderr=subprocess.STDOUT, shell=True)
@@ -233,20 +252,29 @@ def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, c
             os.makedirs(kr_c_out)
         except:
             print(f"Warning : sample directory {kr_c_out} already existing. Overwriting...")
+        annot_folder=f"{cleaned_dir}/annotations"
+        if annotation:
+            try:
+                os.makedirs(annot_folder)
+            except:
+                print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
         cmd_mem = "--memory-mapping" if not mem else ""
-        cmd_kr_clean=f"kraken2 --threads {threads} --db {kraken_db} {cleaned_assembly} -output {kr_c_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_c_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem}"
+        cmd_kr_clean=f"kraken2 --threads {threads} --db {kraken_db} {cleaned_assembly} -output {kr_c_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_c_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem} --confidence {confidence_score}"
         subprocess.run(cmd_kr_clean, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
         cmd_quast=f"quast -t {threads} --pe1 {decontam_reads_R1} --pe2 {decontam_reads_R2} -o {cleaned_dir}/quast/{id_sample}_cleaned_assembly {cleaned_assembly}"
+        cmd_annot=f"bakta -t {threads} --db {bakta_db} --output {annot_folder} -p {id_sample}_{suffix} -f --compliant {cleaned_assembly}"
         subprocess.run(cmd_quast, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
+        if annotation:
+            subprocess.run(cmd_annot, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
+        else:
+            print(f"Bakta databases argument wasn't given, skipping bakta annotations.")
     return cleaned_assembly
 
-def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants):
+def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants, bakta_db, platon_db, confidence_score, keep_junk, annotation):
     ###check missing sample
     sample_dir=f"{path_input}/{id_sample}/"
     sample_out_dir=f"{run_dir}{id_sample}/"
-    taxon_dir= f"{path_input}/meta_analysis/"
     filter_dir=f"{sample_dir}filtered_reads"
-    decontam_dir=f"{sample_out_dir}/decontamination"
     
     log_file = f"{sample_out_dir}decontamination_{id_sample}_{suffix}.log"
     print(f"All prints will now be saved in {log_file} file.")
@@ -281,7 +309,10 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
     if not filter_reads_R1 or not filter_reads_R2:
         return
     #final_assembly dir creation
-    os.makedirs(f"{sample_dir}final_assembly", exist_ok=True)
+    try:
+        os.makedirs(f"{sample_dir}final_assembly")
+    except:
+        print(f"Warning : sample directory {sample_dir}final_assembly already existing. Overwriting...")
 
 
     #reads_filtering after splashome decontamination:
@@ -289,12 +320,11 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
     kr_filter_out=f"{filter_dir}/kraken_results/{id_sample}_{filter_suffix}_kr_results.txt"
     kr_filter_rep=f"{filter_dir}/kraken_reports/{id_sample}_{filter_suffix}_kr_reports.txt"
 
-    #print(kr_filter_rep) #check
-
 
     #creation of the contaminants list
     contaminants_list = []
     contam_file=contaminants
+    print(contaminants)
     try :
         with open(contam_file, 'r') as bl: 
             lines = bl.readlines()
@@ -314,39 +344,49 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
 
     #read decontamination
     decontam_reads_R1, decontam_reads_R2 = blacklist_filtering(filter_reads_R1, filter_reads_R2, id_sample, final_dir, kr_filter_out, filter_suffix, contaminants_str, kr_filter_rep, logger, sample_out_dir)
-    #taxonimic assignement on the reads, will help to assess reads decontamination, maybe not very usefull in the long run. to discuss.
-    decontam_suffix=f"{suffix}_deconta_reads" #est ce utile pour le moment? a verifier
-    kr_deconta_out,kr_deconta_reports = launch_kraken(decontam_reads_R1, decontam_reads_R2, id_sample,final_dir,kraken_db,suffix,nb_threads, mem, logger, sample_out_dir)
-    #genome assembly variable
-    output_dir=f"{decontam_dir}/reads"
-    #logger.info(f"the output_dir is: {output_dir}")
+    kr_deconta_out,kr_deconta_reports = launch_kraken(decontam_reads_R1, decontam_reads_R2, id_sample, final_dir, kraken_db, suffix, nb_threads, mem, logger, sample_out_dir, confidence_score)
     assembly_dir=f"{final_dir}/assembly"
-    #logger.info(f"the final_dir (assembly dir) is: {final_dir}")
 
     #run the final assembly on decontaminated reads.
     print(f"running final assembly in {assembly_dir}")
     deconta_assembly=genome_assembly(decontam_reads_R1, decontam_reads_R2, id_sample, suffix, assembly_dir, nb_threads, logger, sample_out_dir)
 
-    #pas utile...?
-    cleaned_dir=f"{output}/cleaned_assembly"
-    try:
-        os.makedirs(cleaned_dir)
-    except:
-        f"Warning : sample directory {cleaned_dir} already existing. Overwriting..."
-    #deconta_assembly=f"{assembly_dir}/{id_sample}_{suffix}_raw_assembly.fasta"
 
-    #def contigs_cleaning(R1_file, R2_file, assembly, id_sample, suffix, output, threads):
-    print(f"running assembly cleaning in {cleaned_dir}")
-    cleaned_assembly=contigs_cleaning(decontam_reads_R1, decontam_reads_R2, deconta_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir)
+    print(f"running assembly cleaning")
+    cleaned_assembly=contigs_cleaning(decontam_reads_R1, decontam_reads_R2, deconta_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir, bakta_db, kraken_db, confidence_score, annotation)
 
-    #ajouter une boucle if pour junk contigs
     if keep_junk == True:
         logger.info("keep discarded option activated.")
-        new_clean_assembly=junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, deconta_assembly,cleaned_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir)
+        junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, deconta_assembly,cleaned_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir, bakta_db, platon_db, kraken_db, confidence_score, annotation)
+    cleaned_dir=f"{path_input}/cleaned_assembly/"
+    assembly_dir=f"{cleaned_dir}assembly_fasta"
+
+    try:
+        os.makedirs(assembly_dir)
+    except:
+        f"Warning : sample directory {assembly_dir} already existing."
+    shutil.copy(cleaned_assembly, f"{assembly_dir}/")
+
+    if annotation:
+        sample_annot_dir=f"{sample_dir}/cleaned_assembly/annotations"
+        genes_dir=f"{cleaned_dir}genes_faa"
+        try:
+            os.makedirs(genes_dir)
+        except:
+            f"Warning : sample directory {genes_dir} already existing."
+        shutil.copy(f"{sample_annot_dir}/{id_sample}{suffix}.faa")
+        annot_dir=f"{cleaned_dir}genbanks"
+        try:
+            os.makedirs(annot_dir)
+        except:
+            f"Warning : sample directory {annot_dir} already existing."
+        shutil.copy(f"{sample_annot_dir}/{id_sample}{suffix}.gbff")
+
+
     message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : decontamination script end for sample {id_sample}\n" #print the end time of the script, in order to have easy access to the total time the script ran.
     print(message)
 
-def main():
+if __name__ == "__main__":
     arguments = handle_program_options()
     list_missing_id = []
     path_input = arguments.input
@@ -358,6 +398,10 @@ def main():
     nb_threads = arguments.threads
     contaminants=arguments.contaminants
     keep_junk=arguments.keep_junk_contigs
+    annotation=arguments.annotation
+    bakta_db=arguments.bakta_db
+    platon_db=arguments.platon_db
+    confidence_score=arguments.confidence_score
 
     #implement path and verification step
     run_dir=f"{output}/"
@@ -367,8 +411,6 @@ def main():
     #folder verification
     taxon_dir= f"{run_dir}meta_analysis/"
     decontam_dir=f"{sample_dir}decontamination"
-    os.makedirs(f"{sample_dir}final_assembly", exist_ok=True)
-    
 
     #check if the relevant directories exist, in order to stop the script asap if the needed folder do not exist, as this is the 5th part of the workflow 
     if os.path.exists(run_dir):
@@ -386,7 +428,7 @@ def main():
     if os.path.exists(decontam_dir):
             print(f"sucessfully found the taxon directory: {decontam_dir}\n")
     else:
-        print(f"ERROR: the directory {decontam_dir} does not exist, it is likely that the script Sincere-data_outlier_predictor.py have not been run on the samples prior to running this Script. As the meta analysis is required for this script to work properly is an important part of the pipeline you should run it before running this script again.")
+        print(f"WARNING: the directory {decontam_dir} does not exist, it is likely that the script Sincere-data_outlier_predictor.py have not been run on the samples prior to running this Script. As the meta analysis is required for this script to work properly is an important part of the pipeline you should run it before running this script again.")
         sys.exit()
     input_missing_file=f"{path_input}/missing_id.txt"
     output_missing_file=f"{output}/missing_id.txt"
@@ -399,17 +441,14 @@ def main():
     except:
         print("there is not missing file yet, the analysis will run on the complete dataset")
         previous_missing_id_list=[]
-    print(f"Successfully found {id_sample}, proceding to reads decontamination.\n")
+    print(f"Successfully found {id_sample}, proceeding to reads decontamination.\n")
     if os.path.exists(sample_dir):
         print(f"Running the decontamination for {id_sample} in {sample_dir} directory\n")
     else:
         if sample_dir in list_missing_id:
-            print("the sample was removed fro previous step of the pipeline, ignoring the sample")
+            print("The sample was removed from previous step of the pipeline, ignoring the sample")
             sys.exits()
         else:
             print("ERROR, the sample directory do not exist, please check the path")
             sys.exit()
-    process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants)
-
-if __name__ == "__main__":
-    main()
+    process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants, bakta_db, platon_db, confidence_score, keep_junk, annotation)
