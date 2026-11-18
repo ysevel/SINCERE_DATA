@@ -30,27 +30,6 @@ def handle_program_options():
     return parser.parse_args()
 
 
-def list_sags(path_index_file, output, suffix):
-    cleaned_dir=f"{output}/cleaned_assembly"
-    try:
-        os.makedirs(cleaned_dir)
-    except:
-        f"Warning : sample directory {cleaned_dir} already existing. Overwriting..."
-    assembly_dir = f"{cleaned_dir}/assembly_fasta"
-    try:
-        os.makedirs(assembly_dir)
-    except:
-        f"Warning : assembly directory {assembly_dir} already existing. Overwriting..."
-    try :
-        with open(path_index_file, 'r') as id_f: 
-            lines = id_f.readlines()
-            for id in lines:
-                id = id.strip()
-                assembly_file = f"{output}/{id}/cleaned_assembly/{id}_{suffix}_cleaned_assembly.fasta"
-                shutil.copy(assembly_file, f"{assembly_dir}/")
-    except :
-        print(f"Error : index file not found at {path_index_file}")
-
 def cleaned_assembly_filtering(output, suffix, nb_threads, completeness_threshold, contamination_threshold):
     keep_list = []
     cleaned_dir = f"{output}/cleaned_assembly"
@@ -63,18 +42,18 @@ def cleaned_assembly_filtering(output, suffix, nb_threads, completeness_threshol
         os.makedirs(filtered_assembly_dir)
     except:
         f"Warning : assembly directory {filtered_assembly_dir} already existing. Overwriting..."
+    if os.path.isdir(f"{cleaned_dir}/genes_faa"):
+        filtered_genes_dir = f"{cleaned_dir}/filtered_genes"
+        try:
+            os.makedirs(filtered_genes_dir)
+        except:
+            f"Warning : assembly directory {filtered_genes_dir} already existing. Overwriting..." 
 
-    filtered_genes_dir = f"{cleaned_dir}/filtered_genes"
-    try:
-        os.makedirs(filtered_genes_dir)
-    except:
-        f"Warning : assembly directory {filtered_genes_dir} already existing. Overwriting..." 
-
-    filtered_genbanks_dir = f"{cleaned_dir}/filtered_genbanks"
-    try:
-        os.makedirs(filtered_genbanks_dir)
-    except:
-        f"Warning : assembly directory {filtered_genbanks_dir} already existing. Overwriting..." 
+        filtered_genbanks_dir = f"{cleaned_dir}/filtered_genbanks"
+        try:
+            os.makedirs(filtered_genbanks_dir)
+        except:
+            f"Warning : assembly directory {filtered_genbanks_dir} already existing. Overwriting..." 
 
     filtered_checkm_outfile = f"{checkm_dir}/report_filtered_checkm_{suffix}.tsv"
     cmd_checkm = f"checkm lineage_wf -t {nb_threads} -x fasta --tab_table -f {checkm_outfile} {assembly_dir} {checkm_dir}"
@@ -101,16 +80,17 @@ def cleaned_assembly_filtering(output, suffix, nb_threads, completeness_threshol
                             sample_cleaned_assembly_dir = f"{output}/{id}/cleaned_assembly"
                             sample_assembly_file = f"{sample_cleaned_assembly_dir}/{id}_{suffix}_cleaned_assembly.fasta"
                             shutil.copy(sample_assembly_file, filtered_assembly_dir)
-                            sample_genes_file = f"{sample_cleaned_assembly_dir}/annotations/{id}_{suffix}.faa"
-                            try:
-                                shutil.copy(sample_genes_file, filtered_genes_dir)
-                            except:
-                                f"Warning : no amino acid gene sequence were found for {id}."
-                            sample_genbank_file = f"{sample_cleaned_assembly_dir}/annotations/{id}_{suffix}.gbff"
-                            try:
-                                shutil.copy(sample_genbank_file, filtered_genbanks_dir)
-                            except:
-                                f"Warning : no annotation file were found for {id}."
+                            if os.path.isdir(f"{cleaned_dir}/genes_faa"):
+                                sample_genes_file = f"{sample_cleaned_assembly_dir}/annotations/{id}_{suffix}.faa"
+                                try:
+                                    shutil.copy(sample_genes_file, filtered_genes_dir)
+                                except:
+                                    f"Warning : no amino acid gene sequence were found for {id}."
+                                sample_genbank_file = f"{sample_cleaned_assembly_dir}/annotations/{id}_{suffix}.gbff"
+                                try:
+                                    shutil.copy(sample_genbank_file, filtered_genbanks_dir)
+                                except:
+                                    f"Warning : no annotation file were found for {id}."
                             keep_list.append(id)
                         else:
                             print(f"Assembly {id} didn't pass the contamination threshold, filtering it out")
@@ -133,5 +113,4 @@ nb_threads = arguments.threads
 completeness_threshold = arguments.completeness_threshold
 contamination_threshold = arguments.contamination_threshold
 
-list_sags(path_index_file, output, suffix)
 cleaned_assembly_filtering(output, suffix, nb_threads, completeness_threshold, contamination_threshold)

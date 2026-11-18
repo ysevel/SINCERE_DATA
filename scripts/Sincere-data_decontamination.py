@@ -201,10 +201,11 @@ def contigs_cleaning(decontam_reads_R1, decontam_reads_R2, final_assembly, conta
         cmd_quast=f"quast -t {threads} --pe1 {decontam_reads_R1} --pe2 {decontam_reads_R2} -o {cleaned_dir}/quast/{id_sample}_cleaned_assembly {cleaned_assembly}"
         subprocess.run(cmd_quast, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
         annot_folder=f"{cleaned_dir}/annotations"
-        try:
-            os.makedirs(annot_folder)
-        except:
-            print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
+        if annotation:
+            try:
+                os.makedirs(annot_folder)
+            except:
+                print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
         cmd_annot=f"bakta -t {threads} --db {bakta_db} --output {annot_folder} -p {id_sample}_{suffix} -f --compliant {cleaned_assembly}"
         if annotation:
             subprocess.run(cmd_annot, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
@@ -252,10 +253,11 @@ def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, c
         except:
             print(f"Warning : sample directory {kr_c_out} already existing. Overwriting...")
         annot_folder=f"{cleaned_dir}/annotations"
-        try:
-            os.makedirs(annot_folder)
-        except:
-            print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
+        if annotation:
+            try:
+                os.makedirs(annot_folder)
+            except:
+                print(f"Warning : sample directory {annot_folder} already existing. Overwriting...")
         cmd_mem = "--memory-mapping" if not mem else ""
         cmd_kr_clean=f"kraken2 --threads {threads} --db {kraken_db} {cleaned_assembly} -output {kr_c_out}/{id_sample}_{suffix}_kr_results.txt --use-names --report {kr_c_rep}/{id_sample}_{suffix}_kr_reports.txt {cmd_mem} --confidence {confidence_score}"
         subprocess.run(cmd_kr_clean, stdout=log_c,stderr=subprocess.STDOUT, shell=True)
@@ -267,25 +269,6 @@ def junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, final_assembly, c
         else:
             print(f"Bakta databases argument wasn't given, skipping bakta annotations.")
     return cleaned_assembly
-
-def cleaned_assembly_filtering(id_sample, path_input, suffix, logger, nb_threads, sample_out_dir):
-    cleaned_sample_dir = f"{sample_out_dir}/cleaned_assembly"
-    checkm_outfile = f"{cleaned_sample_dir}/checkm/report_checkm_{id_sample}.tsv"
-    cmd_checkm = f"checkm lineage_wf -t {nb_threads} -x fasta --tab_table -f {checkm_outfile} {cleaned_sample_dir} {cleaned_sample_dir}/checkm"
-    cleaned_dir = f"{path_input}/cleaned_assembly"
-    log_filtering = f"{cleaned_sample_dir}/{id_sample}_{suffix}_assembly_filtering.log"
-    with open(log_filtering, "w") as log_f:
-        logger.info("running CheckM on cleaned assembly: {cmd_checkm}")
-        subprocess.run(cmd_checkm, stdout=log_f, stderr=subprocess.STDOUT, shell=True)
-    logger.info("Evaluating the assembly using its completness and contamination calculated by CheckM...")
-    with open(checkm_outfile, "r") as cm_file:
-        genome_stats = cm_file.readlines()[1]
-        comp = float(genome_stats[11])
-        conta = float(genome_stats[12])
-
-
-
-    
 
 def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads, mem, previous_missing_id_list, output_missing_file, contaminants, bakta_db, platon_db, confidence_score, keep_junk, annotation):
     ###check missing sample
@@ -374,7 +357,32 @@ def process_sample(id_sample, path_input, suffix, kraken_db, run_dir, nb_threads
 
     if keep_junk == True:
         logger.info("keep discarded option activated.")
-        new_clean_assembly=junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, deconta_assembly,cleaned_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir, bakta_db, platon_db, kraken_db, confidence_score, annotation)
+        junk_contig_analysis(decontam_reads_R1, decontam_reads_R2, deconta_assembly,cleaned_assembly, contaminants_str, id_sample, suffix, nb_threads, logger, sample_out_dir, mem, sample_dir, bakta_db, platon_db, kraken_db, confidence_score, annotation)
+    cleaned_dir=f"{path_input}/cleaned_assembly/"
+    assembly_dir=f"{cleaned_dir}assembly_fasta"
+
+    try:
+        os.makedirs(assembly_dir)
+    except:
+        f"Warning : sample directory {assembly_dir} already existing."
+    shutil.copy(cleaned_assembly, f"{assembly_dir}/")
+
+    if annotation:
+        sample_annot_dir=f"{sample_dir}/cleaned_assembly/annotations"
+        genes_dir=f"{cleaned_dir}genes_faa"
+        try:
+            os.makedirs(genes_dir)
+        except:
+            f"Warning : sample directory {genes_dir} already existing."
+        shutil.copy(f"{sample_annot_dir}/{id_sample}{suffix}.faa")
+        annot_dir=f"{cleaned_dir}genbanks"
+        try:
+            os.makedirs(annot_dir)
+        except:
+            f"Warning : sample directory {annot_dir} already existing."
+        shutil.copy(f"{sample_annot_dir}/{id_sample}{suffix}.gbff")
+
+
     message = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} : decontamination script end for sample {id_sample}\n" #print the end time of the script, in order to have easy access to the total time the script ran.
     print(message)
 

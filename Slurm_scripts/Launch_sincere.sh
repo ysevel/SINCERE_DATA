@@ -9,9 +9,9 @@ myArray=($(<$samples))
 ##Parameters creation
 if [ "$krk_mem" = true ]
   then
-    mem=""
-  else
     mem="-m"
+  else
+    mem=""
 fi
 
 if [ "$fasta_outliers" = true ]
@@ -64,8 +64,11 @@ cmd_step4="python Sincere-data_decontamination.py -i $run_dir -d ${myArray[${SLU
 cmd_af="python Sincere-data_assembly_filtering.py -i $samples -o $run_dir -n $run_name -t $nb_threads -co $completeness_threshold -ct $contamination_threshold"
 
 #Script execution
-. /local/env/envconda.sh
-conda activate $conda_env
+if [ "$conda_env" != "None" ]
+  then
+  . /local/env/envconda.sh #This command might be specific of the GenOuest cluster maybe it will need modification if working on another cluster
+  conda activate $conda_env
+fi
 
 ##Scripts division in the different steps
 case "${1:-}" in
