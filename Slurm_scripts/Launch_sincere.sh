@@ -1,7 +1,7 @@
 #!/bin/bash
 
 source Configuration_file.txt
-cd ${sincere_path}/scripts
+cd ../scripts
 
 ##Array for jobs parallelization 
 myArray=($(<$samples))
