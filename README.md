@@ -105,7 +105,7 @@ Then, you can modify the Configuration file present in the directory. This file 
 ```bash
 sbatch Wrapper.sh
 ```
-This script was tested on the GenOuest cluster maybe it will need modifications to work on other cluster. For example, the line 69 in `Launch_sincere.sh` file used to activate the conda environment is dependent on how your cluster works. 
+This script was tested on the GenOuest cluster maybe it will need modifications to work on other cluster. For example, the line 72 `. /local/env/envconda.sh` in `Launch_sincere.sh` file used to activate the conda environment is dependent on how your cluster works.
 
 ## Parameters
 ### Required parameters
