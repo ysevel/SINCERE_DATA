@@ -1,8 +1,5 @@
 #SINCERE-DATA configuration file
 ##Global required parameters
-###Path to SINCERE_DATA scripts
-sincere_path="path_to_sincere_scripts"
-
 ###Directory containing the reads (-i for step 1)
 reads_dir="path_to_trimmed_reads_folder"
 
