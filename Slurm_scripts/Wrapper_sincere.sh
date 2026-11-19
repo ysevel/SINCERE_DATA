@@ -1,7 +1,6 @@
 #!/bin/bash
 
 source Configuration_file.txt
-cd ${sincere_path}/Slurm_scripts
 
 myArray=($(<$samples))
 
