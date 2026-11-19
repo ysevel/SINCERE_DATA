@@ -54,7 +54,7 @@ SINCERE-DATA doesn't need any installation. Scripts can be run as described in U
 - SAMtools V.1.21 + : <https://github.com/samtools/samtools>
 - SPAdes V.4.0.0 + : <https://github.com/ablab/spades>
 
-### Step or option dependant
+### Step or option dependent
 #### If using the `-a --annotation` in Step 4
 - bakta V.1.8.1 + : <https://github.com/oschwengers/bakta> 
 
@@ -97,7 +97,7 @@ python Sincere-data_decontamination.py -i [input_dir] -d [sample_id] -o [output_
 python Sincere-data_assembly_filtering.py -i [sample_id_list.txt] -o [output_dir] -n [suffix] (-t [nb_thread] -co [completeness threshold, default = 50] -ct [contamination threshold, default = 10])
 ```
 ### Slurm cluster specific usage
-We have developped scripts that permit a more easy usage for slurm cluster users in one command line. First, you need to go into the Slurm_scripts directory :
+We have developed scripts that permit a more easy usage for slurm cluster users in one command line. First, you need to go into the Slurm_scripts directory :
 ```bash
 cd Slurm_scripts
 ```
@@ -109,7 +109,7 @@ This script was tested on the GenOuest cluster maybe it will need modifications 
 
 ## Parameters
 ### Required parameters
-`-i --input` Path to the input directory or files dependent of the step. Path to the trimmed reads directory for step 1. Path to the sample id txt file for splashome filter step, step 3 and assembly filtering step. Path to the SINCERE-DATA analysis directory for step 2 and 4.
+`-i --input` Path to the input directory or files dependent of the step. Path to the trimmed reads directory for step 1. Path to a sample id txt file for splashome filter step, step 3 and assembly filtering step which is a file containing all sample name (one per line). Path to the SINCERE-DATA analysis directory for step 2 and 4.
 
 `-d --id_file` ID of the sample to analyze. (Only for steps 1, 2 and 4)
 
@@ -124,7 +124,7 @@ This script was tested on the GenOuest cluster maybe it will need modifications 
 
 `-b --blacklist` (default=none) Path to a blacklist file containing the taxon that should be systematically removed from the dataset (one taxid per line). Careful it will eliminate all the children taxa as well.
 
-`-m --mem` Allow kraken to run on memory (optionnal, otherwise will run kraken2 with the `--memory-mapping` option that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example) (see kraken2 manual for more informations). (Only for steps 1, 2 and 4)
+`-m --mem` Allow kraken to run on memory (optional, otherwise will run kraken2 with the `--memory-mapping` option that avoid loading kraken database into the memory but require significantly higher computation time. If you want to load kraken2 database into the memory best to make sure you allocated enough memory the PFPplus kraken2 database require 300G and the nt database 750G to run properly for example) (see kraken2 manual for more information). (Only for steps 1, 2 and 4)
 
 `-t --threads` (default=1) Number of threads to use. (Only for steps 1, 2, 4 and assembly filtering)
 
@@ -133,12 +133,12 @@ This script was tested on the GenOuest cluster maybe it will need modifications 
 `-ta --thres_anomaly` (default=1) Must be a value between 0 and 1, indicate the proportion of the sample allowed to present the same main taxa. For no verification of this parameter keep the default threshold at 1.
 
 #### Step 2
-`--splash` Use this option if you performed the splashome analysis functionnality of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value.
+`--splash` Use this option if you performed the splashome analysis functionality of the pipeline and if it returned a splashome event: use this dataset as your own risk as it is likely too heavily contaminated to be of any value.
 
 `-f --fasta` Add this argument if you want to generate a file of fasta sequences for the outliers found at this step.
 
 #### Step 3
-`-e --email` (required) An email adress to be provided to Entrez as it is required to use E-utilities.
+`-e --email` (required) An email address to be provided to Entrez as it is required to use E-utilities.
 
 `-ts --thres_sample` (default=0.1) Allowed proportion for a taxa to be found in samples and considered as contaminant when less than the float value.
 
@@ -151,7 +151,7 @@ This script was tested on the GenOuest cluster maybe it will need modifications 
 
 `-ba --bakta_db` The path to bakta database for genome annotation (required if `-a --annotation` option is enabled).
 
-`-j --keep_junk_contigs` If this option is selected the contigs discarded by the assembly cleaning will be stored and analyzed for possible mobile elements.
+`-j --keep_junk_contigs` If this option is selected the discarded contigs by the assembly cleaning will be stored and analyzed for possible mobile elements.
 
 `-p --platon_db ` The path to platon database for plasmid identification (required if `-j --keep_junk_contigs` option is enabled).
 
@@ -179,7 +179,7 @@ The main output for each step are described below. If you are only interested in
 
 ### Step 2 : Outlier prediction
 - `<sample_id>/decontamination/assembly/<sample_id>_<run_name>_prelim_assembly.fasta` : Preliminary assembly by SPAdes that will be use as a reference for the outlier detection. 
-- `<sample_id>/decontamination/align_reads/<sample_id>_<run_name>_sorted.bam` : Bowtie2 reads mapping on the preliminaly assembly to identify outlier regions.
+- `<sample_id>/decontamination/align_reads/<sample_id>_<run_name>_sorted.bam` : Bowtie2 reads mapping on the preliminary assembly to identify outlier regions.
 -  `<sample_id>/decontamination/outliers/<sample_id>_<run_name>_outliers.bed` : Identified outlier regions.
 - `<sample_id>/decontamination/<sample_id>_<run_name>_visu_cov.png` : Visual representation of the reads alignment on the preliminary assembly. 
 
@@ -218,7 +218,7 @@ The main output for each step are described below. If you are only interested in
 If you use SINCERE-DATA in your research, please cite this paper :
 > Mauger, S., Sevellec, Y., Carret, L., Robert, N., Monard, C., Thion, C., Jarassier, L., & Vandenkoornhuyse, P. (2025). Wet-lab preparation and automated dataset decontamination procedure for bacterial single-cell genomics. Methods in Ecology and Evolution, 16, 2819-2835. https://doi.org/10.1111/2041-210X.70170
 
-Please, don't forget to also cite all the other softwares used in SINCERE-DATA workflow :
+Please, don't forget to also cite all the other software used in SINCERE-DATA workflow :
 - bbmap : <https://github.com/bbushnell/BBTools>
 - bedtools : <https://doi.org/10.1093/bioinformatics/btq033>
 - bowtie2 : <https://doi.org/10.1038/nmeth.1923>
