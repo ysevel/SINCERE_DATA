@@ -208,7 +208,7 @@ The main output for each step are described below. If you are only interested in
 ### Optional assembly filtering step
 - `cleaned_assembly/checkm/report_checkm_<run_name>.tsv` : CheckM report of all cleaned assemblies. 
 - `cleaned_assembly/checkm/report_filtered_checkm_<run_name>.tsv` : CheckM report of filtered assemblies. 
-- `cleaned_assembly/checkm/Filtered_samples_list_<run_name>.tsv` : List of samples that passed the completeness and contamination threshold. 
+- `cleaned_assembly/Filtered_samples_list_<run_name>.tsv` : List of samples that passed the completeness and contamination threshold. 
 - `cleaned_assembly/filtered_assembly` : Directory containing all filtered assemblies.
 - `cleaned_assembly/filtered_genes` : Directory containing all filtered assemblies aminoacid sequences of genes annotated by bakta.
 - `cleaned_assembly/filtered_genbanks` : Directory containing all filtered assemblies annotation by bakta in gbff format.
