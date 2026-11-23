@@ -52,14 +52,6 @@ def handle_program_options():
                         help="Kraken2 confidence score. See https://github.com/DerrickWood/kraken2/wiki/Manual#confidence-scoring for more details.")
     return parser.parse_args()
 
-def remove_sample(id_sample, message, logger, output_missing_file):
-    """ report the sample id of a missing sample and write the id and the corresponding error message to the missing file."""
-    with missing_id_lock:
-        current_missing_id_list.append(id_sample)
-        with open(output_missing_file, 'a') as missf:
-            missf.write(id_sample + '\t' + message + '\n')
-            logger.info(f"Sample {id_sample} removed: {message}")
-
 def check_sample(id_sample,list_missing_id,logger):
     if id_sample in list_missing_id:
         logger.warning(f"{id_sample} has been found missing in previous steps and will been ignored, exiting.\n")
@@ -71,7 +63,6 @@ def check_sample(id_sample,list_missing_id,logger):
 def check_reads(path_input, id_sample, logger, output_missing_file):
     """ from an input path, a sample id, the number of paired reads (either 1 or 2), test the path then check if read files are present 
         and returns the file name if validated. If not, False is returned to cut the decontamination workflow for the sample. """
-    message = "" #note: it is best that the sample id is separated from any suffix in the reads by '_', otherwise finding the right read can be tricky.    
     input_R1=f"{path_input}/{id_sample}_*R1.fastq*"
     input_R2=f"{path_input}/{id_sample}_*R2.fastq*"
     R1_list=glob.glob(input_R1)
@@ -80,12 +71,10 @@ def check_reads(path_input, id_sample, logger, output_missing_file):
     if os.path.exists(path_input):
         logger.info(f"Files in input path: {glob.glob(path_input)}")
         if len(R1_list) < 1:
-            message = f"Error : R1 reads file not found for {id_sample}"
-            remove_sample(id_sample, message, logger, output_missing_file)
+            logger.info(f"Error : R1 reads file not found for {id_sample}")
             return False, False
         elif len(R2_list) < 1:
-            message = f"Error : R2 reads file not found for {id_sample}"
-            remove_sample(id_sample, message, logger, output_missing_file)
+            logger.info(f"Error : R2 reads file not found for {id_sample}")
             return False, False
         else:
             R1_file=R1_list[0]
