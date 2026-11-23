@@ -51,11 +51,9 @@ def handle_program_options():
 
 def remove_sample(id_sample, message, logger, output_missing_file):
     """ report the sample id of a missing sample and write the id and the corresponding error message to the missing file."""
-    with missing_id_lock:
-        current_missing_id_list.append(id_sample)
-        with open(output_missing_file, 'a') as missf:
-            missf.write(id_sample + '\t' + message + '\n')
-            logger.info(f"Sample {id_sample} removed: {message}")
+    with open(output_missing_file, 'a') as missf:
+        missf.write(id_sample + '\t' + message + '\n')
+        logger.info(f"Sample {id_sample} removed: {message}")
 
 def check_sample(id_sample,list_missing_id,logger):
     if id_sample in list_missing_id:
