@@ -5,7 +5,7 @@ source Configuration_file.txt
 myArray=($(<$samples))
 
 #Number of samples to analyze
-nb_samples=${#myArray[@]}
+nb_samples=$((${#myArray[@]} - 1))
 
 nb_array=0-${nb_samples}%${max_sim_jobs}
 
